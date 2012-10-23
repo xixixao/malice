@@ -1,0 +1,372 @@
+The looking-glass hatta () 
+opened
+  x was a number, y was a number and z was a number.
+  x became 42 and y became 30 but z became x + y.
+  z said Alice.
+closed
+
+===== Analysing file 'ex01.alice' =====
+72
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+The looking-glass hatta () 
+opened
+  x was a number, y was a letter.
+  x became 4 but y became 'a'.
+  x + y said Alice.
+closed
+
+===== Analysing file 'ex02.alice' =====
+--------------- Errors encountered in ExprChecker ---------------
+Type clash for binary operator '+' on line 5. One type is 'number' and the other is 'letter'.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+The looking-glass hatta ()
+opened
+  i was a number and i became 'e'.
+closed
+
+===== Analysing file 'ex03.alice' =====
+--------------- Errors encountered in ExprChecker ---------------
+Type clash in assignment on line 3. One type is 'number' and the other is 'letter'.
+
+
+
+
+
+
+
+
+
+
+
+The looking-glass hatta () 
+opened
+  i was a number, j was a number.
+  i became 17 and j became 3.
+  i % j said Alice.
+closed
+
+===== Analysing file 'ex04.alice' =====
+2
+
+
+
+
+
+
+
+The looking-glass hatta ()  
+opened
+  i was a number and he was a number.
+  i became 42 but he became 0,
+  i / he said Alice.
+closed
+
+===== Analysing file 'ex05.alice' =====
+Run-time error detected
+
+
+
+
+
+The looking-glass hatta () 
+opened
+  i was a number and j was a number.
+  i became 3 and j became 5.
+  i ^ j said Alice.
+closed
+
+===== Analysing file  archaeology/ex06.alice' =====
+6
+
+
+
+
+
+
+
+
+The looking-glass hatta () 
+opened
+  i was a number and j was a number.
+  i became 22 and j became 13.
+  i & j said Alice. 
+closed
+
+===== Analysing file 'ex07.alice' =====
+4
+
+
+
+
+
+
+The looking-glass hatta () 
+opened
+  i was a number and j was a number.
+  i became 22 and j became 3.
+  i | j said Alice.
+closed
+
+===== Analysing file 'ex08.alice' =====
+23
+
+
+
+
+
+
+The looking-glass hatta () 
+opened
+  i was a number, i became 0.
+  ~i said Alice.
+closed
+
+===== Analysing file 'ex09.alice' =====
+-1
+
+
+
+
+
+
+The looking-glass hatta () 
+opened
+  i was a number, j was a number.
+  i became 10 and j became 15.
+  i * j said Alice.
+closed
+
+===== Analysing file 'ex10.alice' =====
+150
+
+
+
+
+
+
+
+The looking-glass hatta () 
+opened
+  this was a number then this became 6.
+  this said Alice.
+closed
+
+===== Analysing file 'ex11.alice' =====
+6
+
+
+
+
+The looking-glass hatta () 
+opened
+  this was a number.
+  this became 4 + 6 + 8 + 10.
+  this said Alice.
+closed
+
+===== Analysing file 'ex12.alice' =====
+28
+
+
+
+
+
+
+The looking-glass hatta () 
+opened
+  andy was a number,
+  linus was a number too.
+  andy became 6.
+  linus became 7 and
+  linus * andy said Alice.
+closed
+
+===== Analysing file 'ex13.alice' =====
+42
+
+
+
+
+
+
+
+
+
+
+The looking-glass hatta () 
+opened
+  Cat was a number.
+  Dog was a number.
+  Cat became 7 then Dog became 6 and Cat drank and Dog ate.
+  Cat * Dog said Alice.
+closed
+
+===== Analysing file 'ex14.alice' =====
+42
+
+
+
+
+
+
+
+
+
+
+The looking-glass hatta () 
+opened
+  there was a number then there was a number then there became 4.
+  there said Alice.
+closed
+
+===== Analysing file 'ex15.alice' =====
+--------------- Errors encountered in SymbolTable ---------------
+Symbol 'there' with type 'VarDeclStmtNode' already defined in this scope on line 3.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+The looking-glass hatta () 
+opened
+ there was a number
+ there became 6.
+ there said Alice.
+closed
+
+===== Analysing file 'ex16.alice' =====
+--------------- Errors encountered in AliceParser ---------------
+Parse error: 'LexToken(ID,'there',4,56)'.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+The looking-glass hatta () 
+opened
+  something was a number.
+  something_else was a number too.
+  something became 7.
+  something_else became ~something.
+  something_else said Alice. 
+closed
+
+===== Analysing file 'ex17.alice' =====
+-8
+
+
+
+
+
+
+
+
+
+
+The looking-glass hatta () 
+opened
+  Cat was a number.
+  Cat became 10.
+  Cat drank.
+  Cat said Alice.
+closed
+
+===== Analysing file 'ex18.alice' =====
+10
+
+
+
+
+
+
+
+
+
+
+
+The looking-glass hatta () 
+opened
+  Banana was a number,
+  Potato was a number too.
+  Apple was a number but Banana became 1.
+  Potato became 2.
+  Apple became 3.
+  Banana + Potato * Apple said Alice.
+closed
+
+
+===== Analysing file 'ex19.alice' =====
+7
+
+
+
+
+
+
+
+
+The looking-glass hatta () 
+opened
+  Banana was a number, Apple was a number and Orange was a number.
+  Potato was a number too.
+  Banana became 1.
+  Potato became 2.
+  Apple became 3.
+  Orange became Banana + Potato.
+  Orange * Apple said Alice.
+closed
+
+===== Analysing file 'ex20.alice' =====
+9
