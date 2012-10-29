@@ -1,12 +1,15 @@
 # MAlice Language Specification
 Michal Srb, Harry Lachenmayer
 
-## Overview
+
+## Preface
 
 We are basing our specification on the provided example files. The examples are syntactically valid according to our specification, and the semantics we provide will produce the same errors and results.
 
+
 ## Language Overview
 
+Here we introduce key concepts of the MAlice language.
 
 ### Functions
 
@@ -16,26 +19,30 @@ MAlice programs need to define a function named "hatta", which is the main entry
 
 ### Types
 
-MAlice is statically typed, currently with two types: "number" and "letter".
+MAlice is statically typed, with two types: **number** and **letter**.
 
-number is a 32-bit two's complement integer.
-letter is an 8-bit ASCII code.
+- **number** is represented as a 32-bit two's complement integer.
+- **letter** is represented as an 8-bit ASCII code.
 
 ### Operations
 
-Operations defined for numbers are:
+Operations take one or two arguments (either literal values or variable names) and return a new value.
+
+Operations defined for **number**s are:
+
   - addition
   - subtraction
   - multiplication
   - division
   - modulo
-  - bitwise not
+  - bitwise not (single argument)
   - bitwise or
   - bitwise and
   - bitwise xor
-These have familiar, C-like syntax.
 
-Using a value of type "letter" with these operations results in a semantic error.
+These have familiar, C-like syntax and semantics.
+
+Using a value of type **letter** with these operations results in a semantic error.
 
 ### Variables
 
@@ -47,51 +54,51 @@ To use a variable, it needs to be initialised with an assignment. Otherwise a se
 
 ## Syntax
 
-function = "The looking-glass" name "()" body
+    function = "The looking-glass" name "()" body
 
-body = "opened" statements "closed"
+    body = "opened" statements "closed"
 
-statements = statement*
+    statements = statement*
 
-statement = (declaration | assignment | saying) statementSeparator
+    statement = (declaration | assignment | saying) statementSeparator
 
-statementSeparator = "too"? ("." | "," | "and" | "but" | "then")
+    statementSeparator = "too"? ("." | "," | "and" | "but" | "then")
 
-declaration = name "was a" type
+    declaration = name "was a" type
 
-assignment = name ("became" expression | "drank" | "ate")
+    assignment = name ("became" expression | "drank" | "ate")
 
-saying = expression "said Alice"
+    saying = expression "said Alice"
 
-type = "number" | "letter"
+    type = "number" | "letter"
 
-expression = or
+    expression = or
 
-or = or "|" xor | xor
-xor = xor "^" and | and
-and = and "&" additive | additive
+    or = or "|" xor | xor
+    xor = xor "^" and | and
+    and = and "&" additive | additive
 
-additive =  additive "+" multiplicative
-         | additive "-" multiplicative
-         | multiplicative
+    additive =  additive "+" multiplicative
+             | additive "-" multiplicative
+             | multiplicative
 
-multiplicative = multiplicative "*" unary
-               | multiplicative "/" unary
-               | multiplicative "%" unary
-               | unary
+    multiplicative = multiplicative "*" unary
+                   | multiplicative "/" unary
+                   | multiplicative "%" unary
+                   | unary
 
-unary = "~" value | value
+    unary = "~" value | value
 
-value = number | name | char
+    value = number | name | char
 
-number = spaces digit+
+    number = spaces digit+
 
-name = letter (letter | '_')*
+    name = letter (letter | '_')*
 
-char = spaces '\'' letter '\''
+    char = spaces '\'' letter '\''
 
-// We are using these base rules
+    // We are using these base rules
 
-digit = [0-9]
-letter = [a-zA-Z]
-spaces = [ \t\n\r]*
+    digit = [0-9]
+    letter = [a-zA-Z]
+    spaces = [ \t\n\r]*
