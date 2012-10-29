@@ -13,7 +13,7 @@ statements = statement*
 
 statement = (declaration | assignment | saying) statementSeparator
 
-statementSeparator = "." | "," | "and" | "but"
+statementSeparator = "too"? ("." | "," | "and" | "but" | "then")
 
 declaration = name "was a" type
 
@@ -23,22 +23,33 @@ saying = expression "said Alice"
 
 type = "number" | "letter"
 
-name = letter (letter | '_')*
-
 expression = or
 
-or = xor | or '|' xor
-xor = and | xor '^' and
-and = additive | and '&' additive
+or = or "|" xor | xor
+xor = xor "^" and | and
+and = and "&" additive | additive
 
-additive = multiplicative | additive '+' multiplicative
-                          | additive '-' multiplicative
+additive =  additive "+" multiplicative
+         | additive "-" multiplicative
+         | multiplicative
 
-multiplicative = unary | multiplicative '*' unary
-                       | multiplicative '/' unary
-                       | multiplicative '%' unary
+multiplicative = multiplicative "*" unary
+               | multiplicative "/" unary
+               | multiplicative "%" unary
+               | unary
 
-unary = value | '~' value
+unary = "~" value | value
 
-value = number | name
+value = number | name | char
 
+number = spaces digit+
+
+name = letter (letter | '_')*
+
+char = spaces '\'' letter '\''
+
+// We are using these base rules
+
+digit = [0-9]
+letter = [a-zA-Z]
+spaces = [ \t\n\r]*
