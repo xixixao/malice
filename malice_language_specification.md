@@ -9,7 +9,7 @@ We are basing our specification on the provided example files. The examples are 
 
 ## Language Overview
 
-Here we introduce key concepts of the MAlice language including examples which ilustrate its basic syntax. We assume basic knowledge 
+Here we introduce key concepts of the MAlice programming language including examples which ilustrate its basic syntax. Note that MAlice syntax is strictly case-sensitive.
 
 ### Functions
 
@@ -17,7 +17,7 @@ MAlice is a language with single-level function definitions.
 
 MAlice programs need to define a function named *hatta*, which is the main entry point of execution.
 
-The body of a function is enclosed between the *opened* and *closed* keywords:
+The body of a function, the list of statements to be executed, is enclosed between the *opened* and *closed* keywords:
 
     The looking-glass hatta () 
     opened
@@ -29,34 +29,54 @@ The body of a function is enclosed between the *opened* and *closed* keywords:
 
 ### Types
 
-MAlice is statically typed, with two types: **number** and **letter**.
+MAlice is statically and strongly typed, with two types: **number** and **letter**.
 
 - **number** is represented as a 32-bit two's complement integer.
 - **letter** is represented as an 8-bit ASCII code.
 
 ### Variables
 
-Before variables can be used, they need to be declared with a specific type.
+Before variables can be used, they need to be declared with a specific type. Once a variable is declared, it cannot be redeclared in the same function scope and it can only be assigned a value of that type.
 
-Once a variable is declared, it can not be redeclared in the same function scope.
+To use a value stored in a variable, it needs to be initialised with an assignment. Note that incrementing/decrementing is a use of the variable's value.
 
-To use a variable, it needs to be initialised with an assignment. Note that incrementing/decrementing is a use of a variable.
-
+Variable names consist of letters (lower or upper case) and underscores.
 In this example, *x* and *y* are variables, *3* is a literal value and *number* is a type:
 
     The looking-glass hatta ()
     opened
       x became 3. # Semantic Error - Assignment to an undeclared variable 'x'.
-      y was a number.
+      y was a number.      
       y drunk. # Semantic Error - Invalid use of a varible, 'y' wasn't initialized. 
+      y became 'a'. # Semantic Error - Assignment to 'y' of value with wrong type 'letter'
       y was a number. # Semantic Error - 'y' was already declared.
     closed
 
 Note that `# comments` are not part of MAlice syntax.
 
+Variable values are stored on the stack (or in registers) and their relative position in memory is determined at compiletime.
+
+### Expressions
+
+Expressions are used to manipulate values. They are computed at runtime and result in a typed value.    
+
+Expressions can be one of:
+
+- literal value (number or a character)
+- variable name - evaluates to the value stored in the variable at the time of evaluation
+- operation
+
+Example of simple expressions:
+
+    x became 7.
+    y became 'a'.
+    z became x.
+
 ### Operations
 
-Operations take one or two arguments (either literal values or variable names) and return a new value.
+Operations take one or two expressions as arguments and return a new value.
+
+There is no limit to the nesting of operations.
 
 Operations defined for **number**s are:
 
@@ -70,7 +90,7 @@ Operations defined for **number**s are:
   - bitwise and
   - bitwise xor
 
-These have familiar, C-like syntax and semantics (including precedence and associativity).
+These have familiar, [C](http://en.wikipedia.org/wiki/C_%28programming_language%29 "the C language")-like syntax and semantics (including precedence and associativity and the modulo behavior).
 
     3 ^ ~5 + 16 said Alice.
 
@@ -79,6 +99,13 @@ Using a value of type **letter** with these operations results in a semantic err
     3 + 'a' said Alice. # Semantic Error - Type clash using operator '+' with 
                         # values of types 'number' and 'letter'.
 
+### Statements
+
+Statements in MAlice are separated by one of the statement endings (`.`, `,`, `and`, `but`, `then`) and they can be either variable declarations, assignements or a special print statement:
+
+`someExpression said Alice`
+
+which outputs the value of *someExpressions*.
 
 ## Formal Syntax
 
