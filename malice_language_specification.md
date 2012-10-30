@@ -78,17 +78,7 @@ Operations take one or two expressions as arguments and return a new value.
 
 There is no limit to the nesting of operations.
 
-Operations defined for **number**s are:
-
-  - addition
-  - subtraction
-  - multiplication
-  - division
-  - modulo
-  - bitwise not
-  - bitwise or
-  - bitwise and
-  - bitwise xor
+Operations defined for **number**s are *addition*, *subtraction*, *multiplication*, *division*, *modulo*, *bitwise not*, *bitwise or*, *bitwise and*, *bitwise xor*
 
 These have familiar, [C](http://en.wikipedia.org/wiki/C_%28programming_language%29 "the C language")-like syntax and semantics (including precedence and associativity and the modulo behavior).
 
@@ -106,6 +96,8 @@ Statements in MAlice are separated by one of the statement endings (`.`, `,`, `a
 `someExpression said Alice`
 
 which outputs the value of *someExpressions*.
+
+All the statement endings can optionally be prefixed by `too`.
 
 ## Formal Syntax
 
