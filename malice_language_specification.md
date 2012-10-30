@@ -7,15 +7,17 @@ Michal Srb, Harry Lachenmayer
 We are basing our specification on the provided example files. The examples are syntactically valid according to our specification, and the semantics we provide will produce the same errors and results.
 
 
-## Language Semantics
+## Language Overview
 
-Here we introduce key concepts of the MAlice language including examples.
+Here we introduce key concepts of the MAlice language including examples which ilustrate its basic syntax. We assume basic knowledge 
 
 ### Functions
 
 MAlice is a language with single-level function definitions.
 
-MAlice programs need to define a function named "hatta", which is the main entry point of execution.
+MAlice programs need to define a function named *hatta*, which is the main entry point of execution.
+
+The body of a function is enclosed between the *opened* and *closed* keywords:
 
     The looking-glass hatta () 
     opened
@@ -31,6 +33,26 @@ MAlice is statically typed, with two types: **number** and **letter**.
 
 - **number** is represented as a 32-bit two's complement integer.
 - **letter** is represented as an 8-bit ASCII code.
+
+### Variables
+
+Before variables can be used, they need to be declared with a specific type.
+
+Once a variable is declared, it can not be redeclared in the same function scope.
+
+To use a variable, it needs to be initialised with an assignment. Note that incrementing/decrementing is a use of a variable.
+
+In this example, *x* and *y* are variables, *3* is a literal value and *number* is a type:
+
+    The looking-glass hatta ()
+    opened
+      x became 3. # Semantic Error - Assignment to an undeclared variable 'x'.
+      y was a number.
+      y drunk. # Semantic Error - Invalid use of a varible, 'y' wasn't initialized. 
+      y was a number. # Semantic Error - 'y' was already declared.
+    closed
+
+Note that `# comments` are not part of MAlice syntax.
 
 ### Operations
 
@@ -57,26 +79,10 @@ Using a value of type **letter** with these operations results in a semantic err
     3 + 'a' said Alice. # Semantic Error - Type clash using operator '+' with 
                         # values of types 'number' and 'letter'.
 
-### Variables
 
-Before variables can be used, they need to be declared with a specific type.
+## Formal Syntax
 
-Once a variable is declared, it can not be redeclared in the same function scope.
-
-To use a variable, it needs to be initialised with an assignment. Note that incrementing/decrementing is a use of a variable.
-
-    The looking-glass hatta ()
-    opened
-      x became 3. # Semantic Error - Assignment to an undeclared variable 'x'.
-      y was a number.
-      y drunk. # Semantic Error - Invalid use of a varible, 'y' wasn't initialized. 
-      y was a number. # Semantic Error - 'y' was already declared.
-    closed
-
-
-## Syntax
-
-This the MAlice syntax specified in a PEG style.
+This the MAlice syntax specified in a PEG style (similar to [PEG.js](http://pegjs.majda.cz/documentation#grammar-syntax-and-semantics-parsing-expression-types "PEG.js syntax")).
 
 The syntax is very permissive and does not check for natural language grammar rules (like the correct use of `.`s and `,`s). Arbitrary whitespace is allowed between terms and in many places not required (`x was anumber` is valid).
 
@@ -106,17 +112,19 @@ The syntax is very permissive and does not check for natural language grammar ru
                    | unary
     unary          = "~" value
                    | value
-    value          = number | char | name
+    value          = number | character | name
     number         = spaces digit+
     name           = spaces letter (letter | '_')*
-    char           = spaces '\'' letter '\''
+    character      = spaces '\'' letter '\''
 
-Strings inside double quotes are matched using the parametrized token rule
+Strings inside double quotes are matched using a parametrized token rule, which matches any number of spaces preceding a list of given characters
     
-    token :value = spaces value
+    token(value) ~ spaces value
 
 We are using some predefined base rules
 
     digit = [0-9]
     letter = [a-zA-Z]
     spaces = [ \t\n\r]*
+
+More on [PEG](https://github.com/PhilippeSigaud/Pegged/wiki/Peg-basics "PEG basics") and [OMeta](http://www.tinlizzie.org/ometa-js/#Things_You_Should_Know "Alex Warth's OMeta") (the parser generator we will use in our MAlice compiler, with some enhancements).
