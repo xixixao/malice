@@ -67,7 +67,7 @@ MAlice programs consist of a list of statements. Statements can change the state
 
 ### Statements
 
-Statements can be either **variable declarations**, **assignments** or **outputting statement**:
+Statements can be either **variable declarations**, **assignments** or special **outputting statement**:
 
 **expression** ` said Alice`
 
@@ -75,10 +75,7 @@ which outputs the value of the expression.
 
 ### Types
 
-Variables in MAlice need to have a declared type. MAlice is statically and strongly typed, with two types: **number** and **letter**.
-
-- **number** is represented as a 32-bit two's complement integer.
-- **letter** is represented as an 8-bit ASCII code.
+Variables in MAlice need to have a declared type. MAlice is statically and strongly typed, with two types: **number**, representing numerical values and **letter**, representing ASCII characters.
 
 ### Variables
 
@@ -120,6 +117,12 @@ Using a value of type **letter** with these operations results in a semantic err
 
 ## Implementation details
 
+MAlice is targetted at the Intel x86 processor architecture.
+
 There is no limit to the nesting of operations.
 
 Variable values are stored in registers (or in registers) and their relative position in memory is determined at compiletime.
+
+
+- **number** is represented as a 32-bit two's complement integer.
+- **letter** is represented as an 8-bit ASCII code.
