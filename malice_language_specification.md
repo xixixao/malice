@@ -34,6 +34,8 @@ The syntax is very permissive and does not check for natural language grammar ru
     additive       = additive "+" multiplicative
                    | additive "-" multiplicative
                    | multiplicative
+...
+
     multiplicative = multiplicative "*" unary
                    | multiplicative "/" unary
                    | multiplicative "%" unary
@@ -45,9 +47,7 @@ The syntax is very permissive and does not check for natural language grammar ru
     character      = spaces '\'' letter '\''
     variable       = spaces letter (letter | '_')*    
 
-Strings inside double quotes are matched using a parametrized token rule, which matches any number of spaces preceding a list of given characters
-    
-`"`string`"` ~ `spaces` string
+Strings inside double quotes are matched using a parametrized token rule, which matches any number of spaces preceding a list of given characters, so `"string"` is equivalent to the rule `spaces` followed by the string.
 
 We are using some predefined base rules
 
@@ -67,11 +67,11 @@ MAlice programs consist of a list of statements. Statements can change the state
 
 ### Statements
 
-Statements can be either **variable declarations**, **assignments** or special **outputting statement**:
+Statements can be either **variable declarations**, **assignments** or a special **outputting statement**:
 
-**expression** ` said Alice`
+*expression* ` said Alice`
 
-which outputs the value of the expression.
+which outputs the value of the *expression*.
 
 ### Types
 
@@ -83,15 +83,15 @@ Before variables can be used, they need to be declared with a specific type. Onc
 
 To use a value stored in a variable, it needs to be initialised with an assignment. Note that incrementing/decrementing is a use of the variable's value.
 
-    The looking-glass hatta ()
-    opened
-      x became 3. # Semantic Error - Assignment to an undeclared variable 'x'.
-      y was a number.      
-      y drunk. # Semantic Error - Invalid use of a varible, 'y' wasn't initialized. 
-      y became 'a'. # Semantic Error - Invalid type of value in assignment, 
-                    # variable 'y' is of type 'number', value is of type 'letter'
-      y was a number. # Semantic Error - 'y' was already declared.
-    closed
+    x became 3.     # Semantic Error - Assignment to an undeclared variable 'x'.
+    y was a number.
+    y drank.        # Semantic Error - Invalid use of a variable,
+                    # 'y' wasn't initialized.
+    y became 'a'.   # Semantic Error - Invalid type of value in assignment,
+                    # variable 'y' is of type 'number',
+                    # value is of type 'letter'
+    y was a number. # Semantic Error - 'y' was already declared.
+
 
 Note that `# comments` are not part of MAlice syntax.
 
@@ -99,7 +99,7 @@ Note that `# comments` are not part of MAlice syntax.
 
 Expressions are used to compute new values. They are computed at runtime and result in a typed value.
 
-Expressions can be either **literal value** (number or a character), **variable name** which evaluates to the value stored in the variable at runtime or **operation**
+Expressions can be either **literal value** (number or a character), **variable name** which evaluates to the value stored in the variable at runtime or **operation**.
 
 ### Operations
 
@@ -107,7 +107,7 @@ Operations take one or two **expressions** as arguments and result in a new valu
 
 Operations defined for **number**s are, in order of precedence: *bitwise not*, *multiplication*, *division*, *modulo*, *addition*, *subtraction*, *bitwise and*, *bitwise xor*, *bitwise or*
 
-These have familiar, [C](http://en.wikipedia.org/wiki/C_%28programming_language%29 "the C language")-like syntax and semantics (including precedence and associativity and the modulo behavior). All the binary operations are left-associative and modulo returns negative reminder when divisor is negative.
+These have familiar, C-like syntax and semantics (including precedence and associativity and the modulo behavior). All the binary operations are left-associative and modulo returns negative reminder when divisor is negative.
 
 Using a value of type **letter** with these operations results in a semantic error.
 
@@ -117,12 +117,19 @@ Using a value of type **letter** with these operations results in a semantic err
 
 ## Implementation details
 
-MAlice is targetted at the Intel x86 processor architecture.
+MAlice is targetted at the Intel x86 32-bit and 64-bit processor architectures.
 
-There is no limit to the nesting of operations.
-
-Variable values are stored in registers (or in registers) and their relative position in memory is determined at compiletime.
-
+Types are represented as follows:
 
 - **number** is represented as a 32-bit two's complement integer.
 - **letter** is represented as an 8-bit ASCII code.
+
+Variable values are stored in registers, and the stack is used if not enough registers are free.
+
+The same applies to the intermediate steps in the computation of arithmetic operations.
+
+Theoretically, there is no limit to the nesting of operations, but the computation is bound by the memory constraints of the program (i.e. stack size).
+
+If an operation overflows, the resulting value will simply be the operation's wrapped two's complement value.
+
+Division by zero will result in a run-time error.
