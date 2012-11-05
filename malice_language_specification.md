@@ -12,7 +12,8 @@ We are basing our specification on the provided example files. The examples are 
 
 This the MAlice syntax specified in a PEG style (similar to PEG.js: [pegjs.majda.cz/documentation](http://pegjs.majda.cz/documentation#grammar-syntax-and-semantics-parsing-expression-types "PEG.js syntax")).
 
-The syntax is very permissive and does not check for natural language grammar rules (like the correct use of `.`s and `,`s). Arbitrary whitespace is allowed between terms and in many places not required (`x was anumber` is valid).
+The syntax is very permissive and does not check for natural language grammar rules (like the correct use of `.`s and `,`s). Arbitrary whitespace is allowed between terms and in many places not required (`x was anumber` is valid). Note that this
+grammar is defined over the stream of input characters, not tokens.
 
     program        = "The looking-glass hatta ()" body
     body           = "opened" statements "closed"
@@ -24,23 +25,23 @@ The syntax is very permissive and does not check for natural language grammar ru
     saying         = expression "said Alice"
     type           = "number" 
                    | "letter"
-    expression     = or
-    or             = or "|" xor
-                   | xor
-    xor            = xor "^" and 
-                   | and
-    and            = and "&" additive 
-                   | additive
-    additive       = additive "+" multiplicative
-                   | additive "-" multiplicative
-                   | multiplicative
+    expression     = bitwiseOr
+    bitwiseOr      = bitwiseOr "|" bitwiseXOr
+                   | bitwiseXOr
+    bitwiseXOr     = bitwiseXOr "^" bitwiseAnd 
+                   | bitwiseAnd
+    bitwiseAnd     = bitwiseAnd "&" addition 
+                   | addition
+    addition       = addition "+" multiplication
+                   | addition "-" multiplication
+                   | multiplication
 ...
 
-    multiplicative = multiplicative "*" unary
-                   | multiplicative "/" unary
-                   | multiplicative "%" unary
-                   | unary
-    unary          = "~" value
+    multiplication = multiplication "*" negation
+                   | multiplication "/" negation
+                   | multiplication "%" negation
+                   | negation
+    negation       = "~" value
                    | value
     value          = number | character | variable
     number         = spaces digit+
@@ -57,9 +58,11 @@ We are using some predefined base rules
 
 More on PEG: [https://github.com/PhilippeSigaud/Pegged/wiki/Peg-basics](https://github.com/PhilippeSigaud/Pegged/wiki/Peg-basics "PEG basics") and OMeta: [http://www.tinlizzie.org/ometa-js/#Things_You_Should_Know](http://www.tinlizzie.org/ometa-js/#Things_You_Should_Know "Alex Warth's OMeta") (the parser generator we will use, with some enhancements, in our MAlice compiler).
 
+When input doesn't match the grammar, a syntactic error is produced and the compilation stops.
+
 ## Semantics
 
-Here we present the language constructs of the MAlice programming language. Note that MAlice syntax and semantics are strictly case-sensitive.
+Here we present the language constructs of the MAlice programming language. Note that MAlice syntax and semantics are strictly case-sensitive. If a semantic error occurs, the compilation stops.
 
 ### Program
 
