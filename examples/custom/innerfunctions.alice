@@ -1,0 +1,25 @@
+x was a number of 3.
+
+The looking-glass hatta ()
+opened
+
+  The looking-glass global ()
+  opened
+    eventually (x == 5) because
+      x became x + 1 but x spoke.
+    enough times.
+  closed
+
+  x was a number of 0.
+
+  The looking-glass local ()
+  opened
+    eventually (x == 5) because
+      x became x + 1 but x spoke.
+    enough times.
+  closed
+  
+  global().
+  "\n" said Alice.
+  local().
+closed
