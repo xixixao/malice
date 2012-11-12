@@ -4,7 +4,7 @@
 
 {readFile} = require 'fs'
 program = require 'commander'
-parser = require './makeparser'
+makeparser = require './makeparser'
 
 # Setting commander
 
@@ -21,4 +21,6 @@ filename = program.args[0]
 readFile filename, 'utf8', (err, data) ->
   if (err)
     throw err
-  console.log data
+  makeparser (parser) ->
+    syntaxTree = parser.parse data
+    console.log syntaxTree
