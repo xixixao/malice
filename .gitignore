@@ -21,3 +21,6 @@
 *.backup
 *.kate-swp
 *.swp
+
+#ignore ignore folder
+ignore
