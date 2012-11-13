@@ -1,5 +1,8 @@
+module.exports = (OMeta, OMLib) -> parse: (input) ->
+  {ometaError} = OMLib
 
+  ometa First
+    rule = "The looking glass" -> "Success"
+#         | anything+ -> "Failure"
 
-
-module.exports.parse = (input) ->
-  input
+  First.matchAll(input, "rule", undefined, ometaError)
