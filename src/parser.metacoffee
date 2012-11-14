@@ -2,15 +2,20 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
   {ometaError} = OMLib
 
   ometa MAlice
-    program        = "The looking-glass hatta ()" body
-    body           = "opened" statements "closed"
+    function       = funDeclaration body
+    funDeclaration = voidFunction | valueFunction
+    voidFunction   = keyword('The looking-glass') identifier args
+    valueFunction  = keyword('The room') identifier args keyword('contained a') identifier
+    args           = "(" listOf('argDeclaration', ',') ")"
+    argDeclaration = type identifier
+    body           = keyword('opened') statements keyword('closed')
     statements     = statement*
     statement      = (declaration | assignment | saying) terminator
-    terminator     = "too"? ("." | "," | "and" | "but" | "then")
-    declaration    = variable "was a" type
-    assignment     = variable ("became" expression | "drank" | "ate")
-    saying         = expression "said Alice"
-    type           = "number" 
+    terminator     = keyword('too')? ("." | "," | "and" | "but" | "then")
+    declaration    = identifier "was a" type
+    assignment     = identifier (keyword('became') expression | keyword('drank') | keyword('ate'))
+    saying         = expression keyword('said Alice')
+    type           = "number"
                    | "letter"
     expression     = bitwiseOr
     bitwiseOr      = bitwiseOr "|" bitwiseXOr
@@ -28,9 +33,10 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
                    | negation
     negation       = "~" value
                    | value
-    value          = number | character | variable
+    value          = number | character | identifier
     number         = spaces digit+
     character      = spaces '\'' letter '\''
-    variable       = spaces letter (letter | '_')*
+    identifier     = spaces letter (letter | '_')*
+    keyword :s     = token(s) !letter
 
-  MAlice.matchAll(input, "program", undefined, ometaError)
+  MAlice.matchAll(input, "function", undefined, ometaError)
