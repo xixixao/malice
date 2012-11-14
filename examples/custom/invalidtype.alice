@@ -1,0 +1,8 @@
+The looking-glass hatta()
+opened
+  The room foo() contained a bar
+  opened
+    Alice found 'x'.
+  closed
+  foo()
+closed

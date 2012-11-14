@@ -1,0 +1,8 @@
+The looking-glass hatta()
+opened
+  The room add(number x, number y) contained a number
+  opened
+    Alice found x + y.
+  closed
+  add(1,2) spoke.
+closed
