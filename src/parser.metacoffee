@@ -2,11 +2,16 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
   {ometaError} = OMLib
 
   ometa MAlice
-    function       = funDeclaration body
-    funDeclaration = voidFunction | valueFunction
-    voidFunction   = keyword('The looking-glass') identifier args
-    valueFunction  = keyword('The room') identifier args keyword('contained a') identifier
-    args           = "(" listOf('argDeclaration', ',') ")"
+    function
+      = funDeclaration:d body:b                                                       -> ['Function'].concat(d, b)
+    funDeclaration
+      = voidFunction | valueFunction
+    voidFunction
+      = keyword('The looking-glass') identifier:n args:as                             -> ['void', n, as]
+    valueFunction
+      = keyword('The room') identifier:n args:as keyword('contained a') identifier:rt -> [rt, n, as]
+    args
+      = "(" listOf('argDeclaration', ','):as ")" -> as
     argDeclaration = type identifier
     body           = keyword('opened') statements keyword('closed')
     statements     = statement*
@@ -20,9 +25,9 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     expression     = bitwiseOr
     bitwiseOr      = bitwiseOr "|" bitwiseXOr
                    | bitwiseXOr
-    bitwiseXOr     = bitwiseXOr "^" bitwiseAnd 
+    bitwiseXOr     = bitwiseXOr "^" bitwiseAnd
                    | bitwiseAnd
-    bitwiseAnd     = bitwiseAnd "&" addition 
+    bitwiseAnd     = bitwiseAnd "&" addition
                    | addition
     addition       = addition "+" multiplication
                    | addition "-" multiplication
@@ -36,7 +41,7 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     value          = number | character | identifier
     number         = spaces digit+
     character      = spaces '\'' letter '\''
-    identifier     = spaces letter (letter | '_')*
+    identifier     = spaces letter:x (letter | '_')*:xs -> x + xs.join('')
     keyword :s     = token(s) !letter
 
   MAlice.matchAll(input, "function", undefined, ometaError)
