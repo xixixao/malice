@@ -1,27 +1,31 @@
 module.exports = (OMeta, OMLib) -> parse: (input) ->
   {ometaError} = OMLib
 
+  join = (xs) ->
+    xs.join ''
+
+  concat = (xs...) ->
+    xs[0].concat xs[1..]...
+
   ometa MAlice
-    function
-      = funDeclaration:d body:b                                                       -> ['Function'].concat(d, b)
-    funDeclaration
-      = voidFunction | valueFunction
-    voidFunction
-      = keyword('The looking-glass') identifier:n args:as                             -> ['void', n, as]
-    valueFunction
-      = keyword('The room') identifier:n args:as keyword('contained a') identifier:rt -> [rt, n, as]
-    args
-      = "(" listOf('argDeclaration', ','):as ")" -> as
-    argDeclaration = type:t identifier:n -> [t, n]
-    body           = keyword('opened') statements keyword('closed')
+    function       = funDeclaration:d body:b                              -> concat ['Function'], d, b
+    funDeclaration = voidFunction | valueFunction
+    voidFunction   = "The looking-glass" identifier:n args:as             -> ['void', n, as]
+    valueFunction  = "The room"          identifier:n args:as
+                     "contained a" identifier:rt                          -> [rt, n, as]
+    args           = "(" listOf('argDeclaration', ','):as ")"             -> as
+    argDeclaration = type:t identifier:n                                  -> [t, n]
+    body           = "opened" declarations statements "closed"
+    declarations   = declaration*
+    declaration    = identifier "was a" type "too"? terminator
     statements     = statement*
-    statement      = (declaration | assignment | saying) terminator
-    terminator     = keyword('too')? ("." | "," | "and" | "but" | "then")
-    declaration    = identifier "was a" type
-    assignment     = identifier (keyword('became') expression | keyword('drank') | keyword('ate'))
-    saying         = expression keyword('said Alice')
+    statement      = (assignment | saying) terminator
+    terminator     =  ("." | "," | "and" | "but" | "then")
+    assignment     = identifier ("became" expression | "drank" | "ate")
+    saying         = expression "said Alice"
     type           = "number"
                    | "letter"
+                   | "sentence"
     expression     = bitwiseOr
     bitwiseOr      = bitwiseOr "|" bitwiseXOr
                    | bitwiseXOr
@@ -38,10 +42,11 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
                    | negation
     negation       = "~" value
                    | value
-    value          = number | character | identifier
+    value          = number | character | string | identifier
     number         = spaces digit+
     character      = spaces '\'' letter '\''
-    identifier     = spaces letter:x (letter | '_')*:xs -> x + xs.join('')
-    keyword :s     = token(s) !letter
+    string         = spaces '"' (!'"' anything)*:xs '"'                   -> join xs
+    identifier     = spaces letter:x (letter | '_')*:xs                   -> x + join xs
+    token :s       = ^token(s):t (!letter(s.charAt(0)) | !letter)         -> t
 
   MAlice.matchAll(input, "function", undefined, ometaError)
