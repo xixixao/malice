@@ -12,7 +12,7 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
       = keyword('The room') identifier:n args:as keyword('contained a') identifier:rt -> [rt, n, as]
     args
       = "(" listOf('argDeclaration', ','):as ")" -> as
-    argDeclaration = type identifier
+    argDeclaration = type:t identifier:n -> [t, n]
     body           = keyword('opened') statements keyword('closed')
     statements     = statement*
     statement      = (declaration | assignment | saying) terminator
