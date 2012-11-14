@@ -8,45 +8,49 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     xs[0].concat xs[1..]...
 
   ometa MAlice
-    function       = funDeclaration:d body:b                              -> concat ['Function'], d, b
+    function       = funDeclaration:d body:b                         -> concat ['Function'], d, b
     funDeclaration = voidFunction | valueFunction
-    voidFunction   = "The looking-glass" identifier:n args:as             -> ['void', n, as]
-    valueFunction  = "The room"          identifier:n args:as
-                     "contained a" identifier:rt                          -> [rt, n, as]
-    args           = "(" listOf('argDeclaration', ','):as ")"             -> as
-    argDeclaration = type:t identifier:n                                  -> [t, n]
-    body           = "opened" declarations statements "closed"
+    voidFunction   = "The looking-glass" identifier:i args:as        -> ['void', i, as]
+    valueFunction  = "The room"          identifier:i args:as
+                     "contained a" identifier:returnType             -> [returnType, i, as]
+    args           = "(" listOf('argDeclaration', ','):as ")"        -> as
+    argDeclaration = type:t identifier:n                             -> [t, n]
+    body           = "opened" declarations:ds statements:ss "closed" -> concat ds, ss
     declarations   = declaration*
-    declaration    = identifier "was a" type "too"? terminator
+    declaration    = identifier:i "was a" type:t
+                     (("of" expression:e) | "too")? terminator       -> ['Declaration', i, t, e]
     statements     = statement*
-    statement      = (assignment | saying) terminator
+    statement      = (assignment | saying):s terminator              -> s
     terminator     =  ("." | "," | "and" | "but" | "then")
-    assignment     = identifier ("became" expression | "drank" | "ate")
-    saying         = expression "said Alice"
+    assignment     = identifier:i ("became" expression:e             -> ['Assignment', i, e]
+                                  | "drank"                          -> ['Increment', i]
+                                  | "ate"                            -> ['Decrement', i]
+                                  )
+    saying         = expression:e "said Alice"                       -> ['Saying', e]
     type           = "number"
                    | "letter"
                    | "sentence"
     expression     = bitwiseOr
-    bitwiseOr      = bitwiseOr "|" bitwiseXOr
+    bitwiseOr      = bitwiseOr:e1 "|" bitwiseXOr:e2                  -> ['BOR', e1, e2]
                    | bitwiseXOr
-    bitwiseXOr     = bitwiseXOr "^" bitwiseAnd
+    bitwiseXOr     = bitwiseXOr:e1 "^" bitwiseAnd:e2                 -> ['BXOR', e1, e2]
                    | bitwiseAnd
-    bitwiseAnd     = bitwiseAnd "&" addition
+    bitwiseAnd     = bitwiseAnd:e1 "&" addition:e2                   -> ['BAND', e1, e2]
                    | addition
-    addition       = addition "+" multiplication
-                   | addition "-" multiplication
+    addition       = addition:e1 "+" multiplication:e2               -> ['Plus', e1, e2]
+                   | addition:e1 "-" multiplication:e2               -> ['Minus', e1, e2]
                    | multiplication
-    multiplication = multiplication "*" negation
-                   | multiplication "/" negation
-                   | multiplication "%" negation
+    multiplication = multiplication:e1 "*" negation:e2               -> ['Multiply', e1, e2]
+                   | multiplication:e1 "/" negation:e2               -> ['Divide', e1, e2]
+                   | multiplication:e1 "%" negation:e2               -> ['Modulo', e1, e2]
                    | negation
-    negation       = "~" value
+    negation       = "~" value:v                                     -> ['Negate', v]
                    | value
     value          = number | character | string | identifier
     number         = spaces digit+
     character      = spaces '\'' letter '\''
-    string         = spaces '"' (!'"' anything)*:xs '"'                   -> join xs
-    identifier     = spaces letter:x (letter | '_')*:xs                   -> x + join xs
-    token :s       = ^token(s):t (!letter(s.charAt(0)) | !letter)         -> t
+    string         = spaces '"' (!'"' anything)*:xs '"'              -> join xs
+    identifier     = spaces letter:x (letter | '_')*:xs              -> x + join xs
+    token :s       = ^token(s):t (!letter(s.charAt(0)) | !letter)    -> t
 
   MAlice.matchAll(input, "function", undefined, ometaError)
