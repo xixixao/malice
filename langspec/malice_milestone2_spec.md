@@ -75,4 +75,4 @@ Arrays in MAlice have a fixed size. The declaration syntax for arrays is differe
 
 To access the i'th element of an array
 
-name's i piece
+	name's i piece
