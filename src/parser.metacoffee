@@ -1,8 +1,36 @@
 module.exports = (OMeta, OMLib) -> parse: (input) ->
   {ometaError} = OMLib
 
-  ometa First
-    rule = "The looking glass" -> "Success"
-#         | anything+ -> "Failure"
+  ometa MAlice
+    program        = "The looking-glass hatta ()" body
+    body           = "opened" statements "closed"
+    statements     = statement*
+    statement      = (declaration | assignment | saying) terminator
+    terminator     = "too"? ("." | "," | "and" | "but" | "then")
+    declaration    = variable "was a" type
+    assignment     = variable ("became" expression | "drank" | "ate")
+    saying         = expression "said Alice"
+    type           = "number" 
+                   | "letter"
+    expression     = bitwiseOr
+    bitwiseOr      = bitwiseOr "|" bitwiseXOr
+                   | bitwiseXOr
+    bitwiseXOr     = bitwiseXOr "^" bitwiseAnd 
+                   | bitwiseAnd
+    bitwiseAnd     = bitwiseAnd "&" addition 
+                   | addition
+    addition       = addition "+" multiplication
+                   | addition "-" multiplication
+                   | multiplication
+    multiplication = multiplication "*" negation
+                   | multiplication "/" negation
+                   | multiplication "%" negation
+                   | negation
+    negation       = "~" value
+                   | value
+    value          = number | character | variable
+    number         = spaces digit+
+    character      = spaces '\'' letter '\''
+    variable       = spaces letter (letter | '_')*
 
-  First.matchAll(input, "rule", undefined, ometaError)
+  MAlice.matchAll(input, "program", undefined, ometaError)

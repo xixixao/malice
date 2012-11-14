@@ -2,25 +2,21 @@
 
 # Module dependencies.
 
-{readFile} = require 'fs'
+{readFileSync} = require 'fs'
 program = require 'commander'
 makeparser = require './makeparser'
 
-# Setting commander
+# commander.js settings
 
 program
   .version('0.0.1')
   .parse(process.argv)
 
-# Getting the file name
+# Compile files
 
-filename = program.args[0]
-
-# Print out file contents
-
-readFile filename, 'utf8', (err, data) ->
-  if (err)
-    throw err
-  makeparser (parser) ->
-    syntaxTree = parser.parse data
+makeparser (parser) ->
+  for file in program.args
+    program = readFileSync file, 'utf8'
+    console.log 'Missing file #{file}' unless program?
+    syntaxTree = parser.parse program
     console.log syntaxTree
