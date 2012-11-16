@@ -5,6 +5,8 @@
 {readFileSync} = require 'fs'
 program = require 'commander'
 makeparser = require './makeparser'
+dumper  = require './jsDump'
+dump = (data) -> dumper.parse data
 
 # commander.js settings
 
@@ -19,4 +21,4 @@ makeparser (parser) ->
     program = readFileSync file, 'utf8'
     console.log 'Missing file #{file}' unless program?
     syntaxTree = parser.parse program
-    console.log syntaxTree
+    console.log dump syntaxTree
