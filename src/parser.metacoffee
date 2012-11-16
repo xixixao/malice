@@ -8,25 +8,31 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     xs[0].concat xs[1..]...
 
   ometa MAlice
-    function       = funDeclaration:d body:b                         -> concat ['Function'], d, b
+    program        = function+
+    function       = funDeclaration:d                                -> concat ['Function'], d
     funDeclaration = voidFunction | valueFunction
-    voidFunction   = "The looking-glass" identifier:i args:as        -> ['void', i, as]
+    voidFunction   = "The looking-glass" identifier:i args:as  block(false):b   -> ['void', i, as, b]
     valueFunction  = "The room"          identifier:i args:as
-                     "contained a" identifier:returnType             -> [returnType, i, as]
+                     "contained a" identifier:returnType block(true):b            -> [returnType, i, as, b]
     args           = "(" listOf('argDeclaration', ','):as ")"        -> as
     argDeclaration = type:t identifier:n                             -> [t, n]
-    body           = "opened" declarations:ds statements:ss "closed" -> concat ds, ss
+    block :finds   = "opened" 
+                     declarations:ds statements(finds):ss
+                     "closed"                                        -> concat ds, ss
     declarations   = declaration*
     declaration    = identifier:i "was a" type:t
                      (("of" expression:e) | "too")? terminator       -> ['Declaration', i, t, e]
-    statements     = statement*
+    statements :find = statement*:ss ( &{find} finding:f             -> concat ss, [f]
+                                     | !{find}                       -> ss
+                                     )
     statement      = (assignment | saying):s terminator              -> s
+    finding        = "Alice found" expression:e terminator           -> ['Finding', e]
     terminator     =  ("." | "," | "and" | "but" | "then")
     assignment     = identifier:i ("became" expression:e             -> ['Assignment', i, e]
                                   | "drank"                          -> ['Increment', i]
                                   | "ate"                            -> ['Decrement', i]
                                   )
-    saying         = expression:e "said Alice"                       -> ['Saying', e]
+    saying         = expression:e ("said Alice" | "spoke")           -> ['Saying', e]
     type           = "number"
                    | "letter"
                    | "sentence"
@@ -47,10 +53,10 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     negation       = "~" value:v                                     -> ['Negate', v]
                    | value
     value          = number | character | string | identifier
-    number         = spaces digit+
-    character      = spaces '\'' letter '\''
+    number         = spaces digit+:ds                                -> join ds
+    character      = spaces '\'' letter:c '\''                       -> c
     string         = spaces '"' (!'"' anything)*:xs '"'              -> join xs
     identifier     = spaces letter:x (letter | '_')*:xs              -> x + join xs
     token :s       = ^token(s):t (!letter(s.charAt(0)) | !letter)    -> t
 
-  MAlice.matchAll(input, "function", undefined, ometaError)
+  MAlice.matchAll(input, "program", undefined, ometaError)
