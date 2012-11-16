@@ -11,9 +11,11 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     program        = function+
     function       = funDeclaration:d                                -> concat ['Function'], d
     funDeclaration = voidFunction | valueFunction
-    voidFunction   = "The looking-glass" identifier:i args:as  block(false):b   -> ['void', i, as, b]
+    voidFunction   = "The looking-glass" identifier:i args:as
+                     block(false):b                                  -> ['void', i, as, b]
     valueFunction  = "The room"          identifier:i args:as
-                     "contained a" identifier:returnType block(true):b            -> [returnType, i, as, b]
+                     "contained a" identifier:returnType
+                     block(true):b                                   -> [returnType, i, as, b]
     args           = "(" listOf('argDeclaration', ','):as ")"        -> as
     argDeclaration = type:t identifier:n                             -> [t, n]
     block :finds   = "opened" 
