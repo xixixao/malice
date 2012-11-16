@@ -24,3 +24,6 @@
 
 #ignore ignore folder
 ignore
+
+#ignore build
+src/parser.js
