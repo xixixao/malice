@@ -5,7 +5,7 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     xs.join ''
 
   concat = (xs...) ->
-    xs[0].concat xs[1..]...
+    (xs[0]?.concat xs[1..]...) ? []
 
   ometa MAlice
     program        = function+
@@ -18,17 +18,18 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
                      block(true):b                                   -> [returnType, i, as, b]
     args           = "(" listOf('argDeclaration', ','):as ")"        -> as
     argDeclaration = type:t identifier:n                             -> [t, n]
-    block :finds   = "opened" 
+    block :finds   = "opened"
                      declarations:ds statements(finds):ss
                      "closed"                                        -> concat ds, ss
     declarations   = declaration*
     declaration    = identifier:i "was a" type:t
                      (("of" expression:e) | "too")? terminator       -> ['Declaration', i, t, e]
-    statements :find = statement*:ss ( &{find} finding:f             -> concat ss, [f]
-                                     | !{find}                       -> ss
-                                     )
+    statements :find = (statement:s -> [s] | block(find))*:ss
+                       ( &{find} finding
+                       | !{find} -> [] ):f                           -> concat ss..., f
     statement      = (assignment | saying):s terminator              -> s
     finding        = "Alice found" expression:e terminator           -> ['Finding', e]
+                   | block(true)
     terminator     =  ("." | "," | "and" | "but" | "then")
     assignment     = identifier:i ("became" expression:e             -> ['Assignment', i, e]
                                   | "drank"                          -> ['Increment', i]
