@@ -5,40 +5,49 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     xs.join ''
 
   concat = (xs...) ->
-    (xs[0]?.concat xs[1..]) ? []
+    (xs[0]?.concat xs[1..]...) ? []
 
   ometa MAlice
-    program        = function+
-    function       = funDeclaration:d                                -> concat ['Function'], d
-    funDeclaration = voidFunction | valueFunction
-    voidFunction   = "The looking-glass" identifier:i args:as
-                     voidBlock:b                                     -> ['void', i, as, b]
+    program        = declarations:ds spaces end                      -> concat ['Program'], ds
+    function       = (valueFunction | voidFunction):d                -> concat ['Function'], d
     valueFunction  = "The room"          identifier:i args:as
                      "contained a" identifier:returnType
-                     valueBlock:b                                    -> [returnType, i, as, b]
+                     valueBlock:vb                                   -> concat [returnType, i, as], vb
+    voidFunction   = "The looking-glass" identifier:i args:as
+                     voidBlock:b                                     -> ['void', i, as, b]
     args           = "(" listOf('argDeclaration', ','):as ")"        -> as
     argDeclaration = type:t identifier:n                             -> [t, n]
-    voidBlock      = openBlock:b "closed"                            -> b
     valueBlock     = openBlock:b finding:f 
-                     <(statements finding)>*:dead "closed"           -> ['ReturnBlock', b, f, dead]
-    openBlock      = "opened" declarations:ds statements:ss          -> ['Block', concat ds, ss]
+                     <(statements finding)>*:dead "closed"           -> [(concat b, [f]), dead]
+    voidBlock      = openBlock:b "closed"                            -> b
+    openBlock      = "opened" declarations:ds statements:ss          -> concat ['Block'], ds, ss
     declarations   = declaration*
-    declaration    = identifier:i "was a" type:t
+    declaration    = function | variable
+    variable       = identifier:i "was a" type:t
                      (("of" expression:e) | "too")? terminator       -> ['Declaration', i, t, e]
-    statements     = (statement | voidBlock)*
+    statements     = statement*
     statement      = (assignment | saying):s terminator              -> s
-    finding        = "Alice found" expression:e terminator           -> ['Finding', e]
-                   | valueBlock
-    terminator     =  ("." | "," | "and" | "but" | "then")
+                   | conditional
+                   | voidBlock
+    conditional    =  "perhaps (" expression:cond ") so"
+                     statements:ss orMaybe:elif
+                     "because Alice was unsure which."               -> ['If', cond, ss, elif]
+    elif           = "or maybe (" expression:cond ") so"
+                     statements:ss orMaybe:elif                      -> ['If', cond, ss, elif]
+                   | "or" statements
     assignment     = identifier:i ("became" expression:e             -> ['Assignment', i, e]
                                   | "drank"                          -> ['Increment', i]
                                   | "ate"                            -> ['Decrement', i]
                                   )
     saying         = expression:e ("said Alice" | "spoke")           -> ['Saying', e]
+    finding        = "Alice found" expression:e terminator           -> ['Finding', e]
+                   | valueBlock
+    terminator     =  ("." | "," | "and" | "but" | "then")
     type           = "number"
                    | "letter"
                    | "sentence"
-    expression     = bitwiseOr
+    expression     = identifier:i "("expressionList:es ")"           -> ['Call', i, es]
+                   | bitwiseOr
     bitwiseOr      = bitwiseOr:e1 "|" bitwiseXOr:e2                  -> ['BOR', e1, e2]
                    | bitwiseXOr
     bitwiseXOr     = bitwiseXOr:e1 "^" bitwiseAnd:e2                 -> ['BXOR', e1, e2]
@@ -55,6 +64,8 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     negation       = "~" value:v                                     -> ['Negate', v]
                    | value
     value          = number | character | string | identifier
+                   | "(" expression ")"
+    expressionList = listOf('expression', ',')
     number         = spaces digit+:ds                                -> join ds
     character      = spaces '\'' letter:c '\''                       -> c
     string         = spaces '"' (!'"' anything)*:xs '"'              -> join xs
