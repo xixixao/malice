@@ -12,24 +12,22 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     function       = funDeclaration:d                                -> concat ['Function'], d
     funDeclaration = voidFunction | valueFunction
     voidFunction   = "The looking-glass" identifier:i args:as
-                     block(false):b                                  -> ['void', i, as, b]
+                     voidBlock:b                                     -> ['void', i, as, b]
     valueFunction  = "The room"          identifier:i args:as
                      "contained a" identifier:returnType
-                     block(true):b                                   -> [returnType, i, as, b]
+                     valueBlock:b                                    -> [returnType, i, as, b]
     args           = "(" listOf('argDeclaration', ','):as ")"        -> as
     argDeclaration = type:t identifier:n                             -> [t, n]
-    block :finds   = "opened"
-                     declarations:ds statements(finds):ss
-                     "closed"                                        -> concat ds, ss
+    voidBlock      = openBlock:b "closed"                            -> b
+    valueBlock     = openBlock:b finding:f "closed"                  -> ['ReturnBlock', b, f]
+    openBlock      = "opened" declarations:ds statements:ss          -> ['Block', concat ds, ss]
     declarations   = declaration*
     declaration    = identifier:i "was a" type:t
                      (("of" expression:e) | "too")? terminator       -> ['Declaration', i, t, e]
-    statements :find = ((statement:s -> [s]) | block(find))*:ss
-                       ( &{find} finding
-                       | !{find} -> [] ):f                           -> concat ss..., f
+    statements     = (statement | voidBlock)*
     statement      = (assignment | saying):s terminator              -> s
     finding        = "Alice found" expression:e terminator           -> ['Finding', e]
-                   | block(true)
+                   | valueBlock
     terminator     =  ("." | "," | "and" | "but" | "then")
     assignment     = identifier:i ("became" expression:e             -> ['Assignment', i, e]
                                   | "drank"                          -> ['Increment', i]

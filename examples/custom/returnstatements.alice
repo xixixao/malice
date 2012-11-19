@@ -1,5 +1,8 @@
 The room bla () contained a number
 opened
   x was a number of 6.
-  Alice found x.
+  opened
+    y was a number of 3.
+    Alice found y.
+  closed
 closed
