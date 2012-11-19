@@ -199,7 +199,7 @@ var jsDump;
       key:literal, //object calls it internally, the key part of an item in a map
       functionCode:'[code]', //function calls it internally, it's the content of the function
       attribute:quote, //node calls it internally, it's an html attribute value
-      string:emptyQuote,
+      string:quote,
       date:quote,
       regexp:literal, //regex
       number:literal,

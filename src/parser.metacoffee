@@ -5,7 +5,7 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     xs.join ''
 
   concat = (xs...) ->
-    (xs[0]?.concat xs[1..]...) ? []
+    (xs[0]?.concat xs[1..]) ? []
 
   ometa MAlice
     program        = function+
@@ -19,7 +19,8 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     args           = "(" listOf('argDeclaration', ','):as ")"        -> as
     argDeclaration = type:t identifier:n                             -> [t, n]
     voidBlock      = openBlock:b "closed"                            -> b
-    valueBlock     = openBlock:b finding:f "closed"                  -> ['ReturnBlock', b, f]
+    valueBlock     = openBlock:b finding:f 
+                     <(statements finding)>*:dead "closed"           -> ['ReturnBlock', b, f, dead]
     openBlock      = "opened" declarations:ds statements:ss          -> ['Block', concat ds, ss]
     declarations   = declaration*
     declaration    = identifier:i "was a" type:t
