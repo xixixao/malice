@@ -24,7 +24,7 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     declarations   = declaration*
     declaration    = identifier:i "was a" type:t
                      (("of" expression:e) | "too")? terminator       -> ['Declaration', i, t, e]
-    statements :find = (statement:s -> [s] | block(find))*:ss
+    statements :find = ((statement:s -> [s]) | block(find))*:ss
                        ( &{find} finding
                        | !{find} -> [] ):f                           -> concat ss..., f
     statement      = (assignment | saying):s terminator              -> s
