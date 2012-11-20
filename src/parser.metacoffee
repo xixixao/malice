@@ -10,11 +10,15 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
   log = (xs...) ->
     console.log x for x in xs
 
+  getKeywords = (usedTokens) ->
+    words = concat (token.split ' ' for token in usedTokens)...
+    word for word in words when 'a' <= word[0] <= 'z' or 'A' <= word[0] <= 'Z'
+
   ometa MAlice
     program         = declarations:ds spaces end                      -> concat ['Program'], ds
     function        = (valueFunction | voidFunction):d                -> concat ['Function'], d
     valueFunction   = "The room"          identifier:i args:as
-                      "contained a" identifier:returnType
+                      "contained a" type:returnType
                       block:b                                         -> concat [returnType, i, as, b]
     voidFunction    = "The looking-glass" identifier:i args:as
                       block:b                                         -> ['void', i, as, b]
@@ -94,14 +98,11 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     number          = spaces digit+:ds                                -> join ds
     character       = spaces '\'' letter:c '\''                       -> c
     string          = spaces '"' (!'"' anything)*:xs '"'              -> join xs
-    identifier      = !reserved
-                      spaces letter:x (letter | '_' | digit)*:xs      -> x + join xs
-    reserved        = "The" | "looking-glass" | "room" | "became" 
-                    | "perhaps" | "because" | "eventually" | "so" 
-                    | "enough" | "times" | "Alice" | "said" | "spoke"
-                    | "found" | "opened" | "closed" | "spider"
-    token :s        = spaced(s):ts (!letter(s[-1..]) | !letter)          -> ts.join ' '
-    spaced :s       -> for word in s.split ' '
-                         MAlice.__super__.token.call(this, word)
+    identifier      = spaces (letter:x (letter | '_' | digit)*:xs     -> x + join xs):i
+                      !{i in @keywords}
+    token :s        = spaced(s):ts (!letter(s[-1..]) | !letter)       -> ts.join ' '
+    spaced :s                                                         -> for word in s.split ' '
+                                                                           MAlice.__super__.token.call(this, word)
+    initialize                                                        -> @keywords = getKeywords @usedTokens
 
   MAlice.matchAll(input, "program", undefined, ometaError)
