@@ -97,7 +97,7 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     character       = spaces '\'' letter:c '\''                       -> c
     string          = spaces '"' (!'"' anything)*:xs '"'              -> join xs
     identifier      = spaces (letter:x (letter | '_' | digit)*:xs     -> x + join xs):i
-                      !{i in @keywords}
+                      !{i in @keywords}                               -> i
     token :s        = spaced(s):ts (!letter(s[-1..]) | !letter)       -> ts.join ' '
     spaced :s                                                         -> for word in s.split ' '
                                                                            MAlice.__super__.token.call(this, word)
