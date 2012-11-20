@@ -8,40 +8,39 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     (xs[0]?.concat xs[1..]...) ? []
 
   ometa MAlice
-    program        = declarations:ds spaces end                      -> concat ['Program'], ds
+    program        = declaration*:ds spaces end                      -> concat ['Program'], ds
     function       = (valueFunction | voidFunction):d                -> concat ['Function'], d
     valueFunction  = "The room"          identifier:i args:as
                      "contained a" identifier:returnType
-                     block('yes'):vb                                   -> concat [returnType, i, as], vb
+                     block:b                                         -> concat [returnType, i, as, b]
     voidFunction   = "The looking-glass" identifier:i args:as
-                     block('no'):b                                     -> ['void', i, as, b]
+                     block:b                                         -> ['void', i, as, b]
     args           = "(" listOf('argDeclaration', ','):as ")"        -> as
     argDeclaration = type:t identifier:n                             -> [t, n]
-    block :f       = "opened" 
-                     declarations:ds statements(f):ss  "closed"      -> concat ['Block'], ds, ss
-    declarations   = declaration*
+    block          = "opened" declarations:ds statements:ss  "closed"-> concat ['Block'], ds, ss
+    declarations   = (declaration+:ds statement:s)?                  -> concat ds, [s]
     declaration    = function | variable
     variable       = identifier:i "was a" type:t
                      (("of" expression:e) | "too")? terminator       -> ['Declaration', i, t, e]
-    statements :f  = statement('no')*:ss (findStatement:fs | !{f})     -> concat ss, fs
-    findStatement  = statement('yes'):f                                -> [f, ['Dead']]
-    statement      = 'no' (assignment | saying | call):s terminator -> s
-                   | 'yes' finding
-                   | anything:f conditional(f):c                     ->c
-                   | anything:f block(f)
-    conditional :f =  "perhaps" "(" boolean:cond ")" "so"
-                     statements(f):ss orMaybe(f):elif
-                     "because Alice was unsure which" '.'?           -> ['If', cond, ss, elif]
-    orMaybe :f     = "or maybe" "(" boolean:cond ")" "so"
-                     statements(f):ss orMaybe(f):elif                -> ['If', cond, ss, elif]
-                   | "or"   statements(f):ss                         -> ss
+    statements     = statement*
+    statement      = (assignment | saying | call):s terminator       -> s
+                   | finding
+                   | conditional
+                   | block
+                   | '.'                                             -> ['Skip']
+    conditional    =  "perhaps" "(" boolean:cond ")" "so"
+                     statements:ss orMaybe:elif
+                     "because Alice was unsure which"                -> ['If', cond, ss, elif]
+    orMaybe        = "or maybe" "(" boolean:cond ")" "so"
+                     statements:ss orMaybe:elif                      -> ['If', cond, ss, elif]
+                   | "or"   statements:ss                            -> ss
     assignment     = identifier:i ("became" expression:e             -> ['Assignment', i, e]
                                   | "drank"                          -> ['Increment', i]
                                   | "ate"                            -> ['Decrement', i]
                                   )
     saying         = expression:e ("said Alice" | "spoke")           -> ['Saying', e]
     call           = identifier:i "(" expressionList:es ")"          -> ['Call', i, es]
-    finding        = "Alice found" expression:e terminator           -> ['Finding', e]
+    finding        = "Alice found" expression:e "."                  -> ['Finding', e]
     terminator     =  ("." | "," | "and" | "but" | "then")
     type           = "number"
                    | "letter"
