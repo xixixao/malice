@@ -8,76 +8,82 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     (xs[0]?.concat xs[1..]...) ? []
 
   ometa MAlice
-    program        = declaration*:ds spaces end                      -> concat ['Program'], ds
-    function       = (valueFunction | voidFunction):d                -> concat ['Function'], d
-    valueFunction  = "The room"          identifier:i args:as
-                     "contained a" identifier:returnType
-                     block:b                                         -> concat [returnType, i, as, b]
-    voidFunction   = "The looking-glass" identifier:i args:as
-                     block:b                                         -> ['void', i, as, b]
-    args           = "(" listOf('argDeclaration', ','):as ")"        -> as
-    argDeclaration = type:t identifier:n                             -> [t, n]
-    block          = "opened" declarations:ds statements:ss  "closed"-> concat ['Block'], ds, ss
-    declarations   = (declaration+:ds statement:s)?                  -> concat ds, [s]
-    declaration    = function | variable
-    variable       = identifier:i "was a" type:t
-                     (("of" expression:e) | "too")? terminator       -> ['Declaration', i, t, e]
-    statements     = statement*
-    statement      = (assignment | saying | call):s terminator       -> s
-                   | finding
-                   | conditional
-                   | block
-                   | '.'                                             -> ['Skip']
-    conditional    =  "perhaps" "(" boolean:cond ")" "so"
-                     statements:ss orMaybe:elif
-                     "because Alice was unsure which"                -> ['If', cond, ss, elif]
-    orMaybe        = "or maybe" "(" boolean:cond ")" "so"
-                     statements:ss orMaybe:elif                      -> ['If', cond, ss, elif]
-                   | "or"   statements:ss                            -> ss
-    assignment     = identifier:i ("became" expression:e             -> ['Assignment', i, e]
-                                  | "drank"                          -> ['Increment', i]
-                                  | "ate"                            -> ['Decrement', i]
-                                  )
-    saying         = expression:e ("said Alice" | "spoke")           -> ['Saying', e]
-    call           = identifier:i "(" expressionList:es ")"          -> ['Call', i, es]
-    finding        = "Alice found" expression:e "."                  -> ['Finding', e]
-    terminator     =  ("." | "," | "and" | "but" | "then")
-    type           = "number"
-                   | "letter"
-                   | "sentence"
-    expression     = call
-                   | bitwiseOr
-    bitwiseOr      = bitwiseOr:e1 "|" bitwiseXOr:e2                  -> ['BOR', e1, e2]
-                   | bitwiseXOr
-    bitwiseXOr     = bitwiseXOr:e1 "^" bitwiseAnd:e2                 -> ['BXOR', e1, e2]
-                   | bitwiseAnd
-    bitwiseAnd     = bitwiseAnd:e1 "&" addition:e2                   -> ['BAND', e1, e2]
-                   | addition
-    addition       = addition:e1 "+" multiplication:e2               -> ['Plus', e1, e2]
-                   | addition:e1 "-" multiplication:e2               -> ['Minus', e1, e2]
-                   | multiplication
-    multiplication = multiplication:e1 "*" unary:e2                  -> ['Multiply', e1, e2]
-                   | multiplication:e1 "/" unary:e2                  -> ['Divide', e1, e2]
-                   | multiplication:e1 "%" unary:e2                  -> ['Modulo', e1, e2]
-                   | unary
-    unary          = unaryOp:op unary:e                              -> ['Unary', op, e]
-                   | value
-    unaryOp        = "~" | "-" | "+"
-    boolean        = or
-    or             = or:b1  "||" and:b2                              -> ['OR', b1, b2]
-                   | and
-    and            = and:b1 "&&" addition:b2                         -> ['AND', b1, b2]
-                   | "(" boolean:b ")"                               -> b
-                   | comparison
-    comparison     = (comparison | expression):e1 comparisonOp:op expression:e2     -> ['Compare', op, e1, e2]
-    comparisonOp   = "<" | ">" | "==" | ">=" | "<=" | "!="
-    value          = number | character | string | identifier
-                   | "(" expression:e ")"                            -> e
-    expressionList = listOf('expression', ',')
-    number         = spaces digit+:ds                                -> join ds
-    character      = spaces '\'' letter:c '\''                       -> c
-    string         = spaces '"' (!'"' anything)*:xs '"'              -> join xs
-    identifier     = spaces letter:x (letter | '_')*:xs              -> x + join xs
-    token :s       = ^token(s):t (!letter(s.charAt(0)) | !letter)    -> t
+    program         = declarations:ds spaces end                      -> concat ['Program'], ds
+    function        = (valueFunction | voidFunction):d                -> concat ['Function'], d
+    valueFunction   = "The room"          identifier:i args:as
+                      "contained a" identifier:returnType
+                      block:b                                         -> concat [returnType, i, as, b]
+    voidFunction    = "The looking-glass" identifier:i args:as
+                      block:b                                         -> ['void', i, as, b]
+    args            = "(" listOf('argDeclaration', ','):as ")"        -> as
+    argDeclaration  = type:t identifier:n                             -> [t, n]
+    block           = "opened" 
+                      (declarations:ds statements:ss)? "closed"       -> concat ['Block'], ds, ss ? []
+    declarations    = declaration*
+    declaration     = function | variable
+    variable        = identifier:i "was a" type:t
+                      (("of" expression:e) | "too")? terminator       -> ['Declaration', i, t, e]
+    statements      = statement+
+    statement       = (assignment | saying | call):s terminator       -> s
+                    | finding
+                    | conditional
+                    | loop
+                    | block
+                    | "."                                             -> ['Skip']
+    terminator      =  ("." | "," | "and" | "but" | "then")
+    assignment      = identifier:i ("became" expression:e             -> ['Assignment', i, e]
+                                   | "drank"                          -> ['Decrement', i]
+                                   | "ate"                            -> ['Inccrement', i]
+                                   )
+    saying          = expression:e ("said Alice" | "spoke")           -> ['Saying', e]
+    call            = identifier:i "(" expressionList:es ")"          -> ['Call', i, es]
+    finding         = "Alice found" expression:e "."                  -> ['Finding', e]
+    conditional     = "perhaps" "(" boolean:cond ")" "so"
+                        statements:ss 
+                      orMaybe?:elif "because Alice was unsure which"  -> ['If', cond, ss, elif]
+    orMaybe         = "or maybe" "(" boolean:cond ")" "so"
+                        statements:ss 
+                      orMaybe:elif                                    -> ['If', cond, ss, elif]
+                    | "or"
+                        statements:ss                                 -> ss
+    loop            = "eventually" "(" boolean:cond ")" "because"
+                        statements:ss "enough times"                  -> ['Until', cond, ss]
+    type            = "number"
+                    | "letter"
+                    | "sentence"
+    expression      = call
+                    | bitwiseOr
+    bitwiseOr       = bitwiseOr:e1 "|" bitwiseXOr:e2                  -> ['BOR', e1, e2]
+                    | bitwiseXOr
+    bitwiseXOr      = bitwiseXOr:e1 "^" bitwiseAnd:e2                 -> ['BXOR', e1, e2]
+                    | bitwiseAnd
+    bitwiseAnd      = bitwiseAnd:e1 "&" addition:e2                   -> ['BAND', e1, e2]
+                    | addition
+    addition        = addition:e1 "+" multiplication:e2               -> ['Plus', e1, e2]
+                    | addition:e1 "-" multiplication:e2               -> ['Minus', e1, e2]
+                    | multiplication
+    multiplication  = multiplication:e1 "*" unary:e2                  -> ['Multiply', e1, e2]
+                    | multiplication:e1 "/" unary:e2                  -> ['Divide', e1, e2]
+                    | multiplication:e1 "%" unary:e2                  -> ['Modulo', e1, e2]
+                    | unary
+    unary           = unaryOp:op unary:e                              -> ['Unary', op, e]
+                    | value
+    unaryOp         = "~" | "-" | "+"
+    boolean         = or
+    or              = or:b1  "||" and:b2                              -> ['OR', b1, b2]
+                    | and
+    and             = and:b1 "&&" addition:b2                         -> ['AND', b1, b2]
+                    | "(" boolean:b ")"                               -> b
+                    | comparison
+    comparison      = (comparison | expression):e1 comparisonOp:op expression:e2     -> ['Compare', op, e1, e2]
+    comparisonOp    = "<" | ">" | "==" | ">=" | "<=" | "!="
+    value           = number | character | string | identifier
+                    | "(" expression:e ")"                            -> e
+    expressionList  = listOf('expression', ',')
+    number          = spaces digit+:ds                                -> join ds
+    character       = spaces '\'' letter:c '\''                       -> c
+    string          = spaces '"' (!'"' anything)*:xs '"'              -> join xs
+    identifier      = spaces letter:x (letter | '_')*:xs              -> x + join xs
+    token :s        = ^token(s):t (!letter(s.charAt(0)) | !letter)    -> t
 
   MAlice.matchAll(input, "program", undefined, ometaError)
