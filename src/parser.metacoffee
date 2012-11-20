@@ -44,15 +44,15 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     expressionList  = listOf('expression', ',')
     finding         = "Alice found" expression:e "."                  -> ['Return', e]
     question        = "what was" assignable:x "?"                     -> ['Input', x]
-    conditional     = ("perhaps" | "either") "(" boolean:cond ")" "so"
+    conditional     = ("perhaps" | "either") "(" boolean:cond ") so"
                         statements:ss 
                       orMaybe?:elif "because Alice was unsure which"  -> ['If', cond, ss, elif]
-    orMaybe         = "or maybe" "(" boolean:cond ")" "so"
+    orMaybe         = "or maybe (" boolean:cond ") so"
                         statements:ss 
                       orMaybe?:elif                                   -> ['If', cond, ss, elif]
                     | "or"
                         statements:ss                                 -> ss
-    loop            = "eventually" "(" boolean:cond ")" "because"
+    loop            = "eventually (" boolean:cond ") because"
                         statements:ss "enough times"                  -> ['Until', cond, ss]
     eType           = "spider" type:t                                 -> ['Spider', t]
                     | type
@@ -94,14 +94,14 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     number          = spaces digit+:ds                                -> join ds
     character       = spaces '\'' letter:c '\''                       -> c
     string          = spaces '"' (!'"' anything)*:xs '"'              -> join xs
-    identifier      = # !reserved
+    identifier      = !reserved
                       spaces letter:x (letter | '_' | digit)*:xs      -> x + join xs
-#>    reserved        = "The" | "looking-glass" | "room" | "became" 
+    reserved        = "The" | "looking-glass" | "room" | "became" 
                     | "perhaps" | "because" | "eventually" | "so" 
                     | "enough" | "times" | "Alice" | "said" | "spoke"
                     | "found" | "opened" | "closed" | "spider"
-<#
-    token :s        = spaced(s):ts (!letter(s[0]) | !letter)          -> ts.join ' '
+    token :s        = spaced(s):ts (!letter(s[-1..]) | !letter)          -> ts.join ' '
     spaced :s       -> for word in s.split ' '
                          MAlice.__super__.token.call(this, word)
+
   MAlice.matchAll(input, "program", undefined, ometaError)
