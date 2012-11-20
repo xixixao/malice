@@ -40,7 +40,7 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     terminator      =  ("." | "," | "and" | "but" | "then")
     assignment      = assignable:x ("became" expression:e             -> ['Assignment', x, e]
                                    | "drank"                          -> ['Decrement', x]
-                                   | "ate"                            -> ['Inccrement', x]
+                                   | "ate"                            -> ['Increment', x]
                                    )
     assignable      = arrayPiece | identifier
     saying          = expression:e ("said Alice" | "spoke")           -> ['Output', e]
@@ -48,33 +48,31 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     expressionList  = listOf('expression', ',')
     finding         = "Alice found" expression:e "."                  -> ['Return', e]
     question        = "what was" assignable:x "?"                     -> ['Input', x]
-    conditional     = ("perhaps" | "either") "(" boolean:cond ") so"
+    conditional     = ("perhaps" | "either") "(" expression:c ") so"
                         statements:ss 
-                      orMaybe?:elif "because Alice was unsure which"  -> ['If', cond, ss, elif]
-    orMaybe         = "or maybe (" boolean:cond ") so"
+                      orMaybe?:elif "because Alice was unsure which"  -> ['If', c, ss, elif]
+    orMaybe         = "or maybe (" expression:c ") so"
                         statements:ss 
-                      orMaybe?:elif                                   -> ['If', cond, ss, elif]
+                      orMaybe?:elif                                   -> ['If', c, ss, elif]
                     | "or"
                         statements:ss                                 -> ss
-    loop            = "eventually (" boolean:cond ") because"
-                        statements:ss "enough times"                  -> ['Until', cond, ss]
+    loop            = "eventually (" expression:c ") because"
+                        statements:ss "enough times"                  -> ['Until', c, ss]
     eType           = "spider" type:t                                 -> ['Spider', t]
                     | type
     type            = "number"
                     | "letter"
                     | "sentence"
-    boolean         = or
+    expression      = or
     or              = or:b1  "||" and:b2                              -> ['Or', b1, b2]
                     | and
     and             = and:b1 "&&" negation:b2                         -> ['And', b1, b2]
                     | negation
     negation        = "!" negation:b                                  -> ['Not', b]
-                    | "(" boolean:b ")"                               -> b
                     | comparison
-    comparison      = (comparison | expression):e1
-                      comparisonOp:op expression:e2                   -> ['Compare', op, e1, e2]
+    comparison      = comparison:e1 comparisonOp:op expression:e2     -> ['Compare', op, e1, e2]
+                    | bitwiseOr
     comparisonOp    = "==" | ">=" | "<=" | "!=" | "<" | ">"
-    expression      = bitwiseOr
     bitwiseOr       = bitwiseOr:e1 "|" bitwiseXOr:e2                  -> ['BOr', e1, e2]
                     | bitwiseXOr
     bitwiseXOr      = bitwiseXOr:e1 "^" bitwiseAnd:e2                 -> ['BXOr', e1, e2]
