@@ -94,7 +94,14 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     number          = spaces digit+:ds                                -> join ds
     character       = spaces '\'' letter:c '\''                       -> c
     string          = spaces '"' (!'"' anything)*:xs '"'              -> join xs
-    identifier      = spaces letter:x (letter | '_' | digit)*:xs      -> x + join xs
-    token :s        = ^token(s):t (!letter(s[0]) | !letter)           -> t
-
+    identifier      = # !reserved
+                      spaces letter:x (letter | '_' | digit)*:xs      -> x + join xs
+#>    reserved        = "The" | "looking-glass" | "room" | "became" 
+                    | "perhaps" | "because" | "eventually" | "so" 
+                    | "enough" | "times" | "Alice" | "said" | "spoke"
+                    | "found" | "opened" | "closed" | "spider"
+<#
+    token :s        = spaced(s):ts (!letter(s[0]) | !letter)          -> ts.join ' '
+    spaced :s       -> for word in s.split ' '
+                         MAlice.__super__.token.call(this, word)
   MAlice.matchAll(input, "program", undefined, ometaError)
