@@ -64,11 +64,11 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
                     | "letter"
                     | "sentence"
     expression      = or
-    or              = or:b1  "||" and:b2                              -> @logic('||', b1, b2)
+    or              = or:b1  "||" and:b2                              -> @logic '||', b1, b2
                     | and
-    and             = and:b1 "&&" negation:b2                         -> @logic('&&', b1, b2)
+    and             = and:b1 "&&" negation:b2                         -> @logic '&&', b1, b2
                     | negation
-    negation        = "!" negation:b                                  -> @logic('!', b)
+    negation        = "!" negation:b                                  -> @logic '!', b
                     | comparison
     comparison      = comparison:e1 comparisonOp:op expression:e2     -> @comparison op, e1, e2
                     | bitwiseOr
@@ -89,12 +89,13 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
                     | value
     unaryOp         = "~" | "-" | "+"
     value           = number | character | string
-                    | arrayPiece | call | identifier
+                    | arrayPiece | call
+                    | identifier:i                                    -> @identifier i
                     | "(" expression:e ")"                            -> e
     arrayPiece      = identifier:i "'s" expression:e "piece"          -> ['Element', i, e]
     number          = spaces digit+:ds                                -> ['Number', types.number, join ds]
-    character       = spaces '\'' letter:c '\''                       -> c
-    string          = spaces '"' (!'"' anything)*:xs '"'              -> join xs
+    character       = spaces '\'' letter:c '\''                       -> ['Letter', types.letter, c]
+    string          = spaces '"' (!'"' anything)*:xs '"'              -> ['Sentence', types.sentence, join xs]
     identifier      = spaces (letter:x (letter | '_' | digit)*:xs     -> x + join xs):i
                       !{i in @keywords}                               -> i
     token :s        = spaced(s):ts (!letter(s[-1..]) | !letter)       -> ts.join ' '
@@ -109,6 +110,7 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     letter: "letter"
     sentence: "sentence"
     boolean: "boolean"
+    error: "error"
     spider: (type) ->
       "array of #{type}s"
 
@@ -116,14 +118,26 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     @checkBoth b1, b2, [types.boolean]
     ['Logic', types.boolean, operator, b1, b2]
 
+  MAlice::comparison = (operator, e1, e2) ->
+    @checkBoth e1, e2, [types.number, types.letter]
+    ['Comparison', types.boolean, operator, e1, e2]
 
   MAlice::arithmetic = (operator, e1, e2) ->
     @checkBoth e1, e2, [types.number]
     ['Arithmetic', types.number, operator, e1, e2]
 
+  MAlice::identifier = (name) ->
+    reference = @symbolTable[name]
+    if reference?
+      type = reference.type
+    else
+      console.error "#{name} undefined"
+      type = types.error
+    ['Identifier', type, name]
+
   MAlice::checkBoth = (e1, e2, validTypes) ->
-    check e1, validTypes
-    check e2, validTypes if e2?
+    @check e1, validTypes
+    @check e2, validTypes if e2?
 
   MAlice::check = (e, validTypes) ->
     [_, type, _...] = e
