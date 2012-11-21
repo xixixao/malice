@@ -15,7 +15,7 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     word for word in words when 'a' <= word[0] <= 'z' or 'A' <= word[0] <= 'Z'
 
   ometa MAlice
-    program         = declarations:ds spaces end                      -> concat ['Program'], ds
+    program         = createScope declarations:ds spaces end          -> concat ['Program'], ds
     function        = (valueFunction | voidFunction):d                -> concat ['Function'], d
     valueFunction   = "The room"          identifier:i args:as
                       "contained a" type:returnType
@@ -101,8 +101,9 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     token :s        = spaced(s):ts (!letter(s[-1..]) | !letter)       -> ts.join ' '
     spaced :s                                                         -> for word in s.split ' '
                                                                            MAlice.__super__.token.call(this, word)
-    initialize                                                        -> @keywords = getKeywords @usedTokens
-                                                                         @symbolTable = {}
+    createScope     -> outerScope = @currentScope
+                       @currentScope = outer: outerScope, declarations: {}
+    initialize      -> @keywords = getKeywords @usedTokens
 
   # Types
 
@@ -116,15 +117,14 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
       "array of #{type}s"
 
   MAlice::variable = (name, type, value) ->
-    reference = @lookup(name)
+    reference = @currentScope.declarations[name]
     if reference?
-      console.error "#{name} already declared"
+      console.error "#{name} already declared in current scope"
     else
-      @symbolTable[name] =
+      @currentScope.declarations[name] =
         name: name
         type: type
 
-  
   class MAliceSemantics extends MAlice
     logic: (operator, b1, b2) ->
       @checkBoth b1, b2, [types.boolean]
@@ -139,12 +139,7 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
       ['Arithmetic', types.number, operator, e1, e2]
 
     identifier: (name) ->
-      reference = @lookup(name)
-      if reference?
-        type = reference.type
-      else
-        console.error "#{name} undefined"
-        type = types.error
+      {type} = @lookup(name)
       ['Identifier', type, name]
 
     checkBoth: (e1, e2, validTypes) ->
@@ -157,7 +152,16 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
         console.error "Type mismatch, expected #{validTypes.join(' or ')}, got #{type}"
 
     lookup: (name) ->
-      undefined
+      @lookupIn name, @currentScope
 
+    lookupIn: (name, scope) ->
+      reference = scope.declarations[name]
+      if reference?
+        return reference
+      if scope.outer
+        return @lookup name, scope.outer
+      else
+        console.error "#{name} undeclared"
+        return {name: name, type: types.error}
 
   MAliceSemantics.matchAll(input, "program", undefined, ometaError)
