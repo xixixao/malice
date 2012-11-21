@@ -80,10 +80,11 @@ To access the i'th element of an array
 
 # Semantic errors
 
-- 08 program must include function hatta
+- 08 program must include looking-glass hatta (25 not room)
 - 09 no redeclaring variables
 - 13 assignments must match types
 - 15 logics must be used on booleans
-- 20 refernces must be in scope
+- 20 references must be in scope
 - 22 arrays are not assignable or printable
 - 23 check types across calls
+- 28 unary operator types
