@@ -30,7 +30,7 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     declaration     = function 
                     | variable:v terminator                           -> v
     variable        = identifier:i "was a" type:t
-                      (("of" expression:e) | "too")?                  -> ['Variable', i, t, e]
+                      (("of" expression:e) | "too")?                  -> @variable i, t, e
                     | identifier:i "had" expression:n type:t          -> ['Array', i, n, t]
     statements      = statement+
     statement       = (assignment | saying | call):s terminator       -> s
@@ -102,6 +102,7 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     spaced :s                                                         -> for word in s.split ' '
                                                                            MAlice.__super__.token.call(this, word)
     initialize                                                        -> @keywords = getKeywords @usedTokens
+                                                                         @symbolTable = {}
 
   # Types
 
@@ -114,37 +115,49 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     spider: (type) ->
       "array of #{type}s"
 
-  MAlice::logic = (operator, b1, b2) ->
-    @checkBoth b1, b2, [types.boolean]
-    ['Logic', types.boolean, operator, b1, b2]
-
-  MAlice::comparison = (operator, e1, e2) ->
-    @checkBoth e1, e2, [types.number, types.letter]
-    ['Comparison', types.boolean, operator, e1, e2]
-
-  MAlice::arithmetic = (operator, e1, e2) ->
-    @checkBoth e1, e2, [types.number]
-    ['Arithmetic', types.number, operator, e1, e2]
-
-  MAlice::identifier = (name) ->
-    reference = @symbolTable[name]
+  MAlice::variable = (name, type, value) ->
+    reference = @lookup(name)
     if reference?
-      type = reference.type
+      console.error "#{name} already declared"
     else
-      console.error "#{name} undefined"
-      type = types.error
-    ['Identifier', type, name]
+      @symbolTable[name] =
+        name: name
+        type: type
 
-  MAlice::checkBoth = (e1, e2, validTypes) ->
-    @check e1, validTypes
-    @check e2, validTypes if e2?
+  
+  class MAliceSemantics extends MAlice
+    logic: (operator, b1, b2) ->
+      @checkBoth b1, b2, [types.boolean]
+      ['Logic', types.boolean, operator, b1, b2]
 
-  MAlice::check = (e, validTypes) ->
-    [_, type, _...] = e
-    unless type in validTypes
-      console.error "Type mismatch, expected #{validTypes.join(' or ')}, got #{type}"
+    comparison: (operator, e1, e2) ->
+      @checkBoth e1, e2, [types.number, types.letter]
+      ['Comparison', types.boolean, operator, e1, e2]
+
+    arithmetic: (operator, e1, e2) ->
+      @checkBoth e1, e2, [types.number]
+      ['Arithmetic', types.number, operator, e1, e2]
+
+    identifier: (name) ->
+      reference = @lookup(name)
+      if reference?
+        type = reference.type
+      else
+        console.error "#{name} undefined"
+        type = types.error
+      ['Identifier', type, name]
+
+    checkBoth: (e1, e2, validTypes) ->
+      @check e1, validTypes
+      @check e2, validTypes if e2?
+
+    check: (e, validTypes) ->
+      [_, type, _...] = e
+      unless type in validTypes
+        console.error "Type mismatch, expected #{validTypes.join(' or ')}, got #{type}"
+
+    lookup: (name) ->
+      undefined
 
 
-
-
-  MAlice.matchAll(input, "program", undefined, ometaError)
+  MAliceSemantics.matchAll(input, "program", undefined, ometaError)
