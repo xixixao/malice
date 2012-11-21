@@ -24,8 +24,9 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
                       block:b                                         -> ['void', i, as, b]
     args            = "(" listOf('argDeclaration', ','):as ")"        -> as
     argDeclaration  = eType:t identifier:n                            -> [t, n]
-    block           = "opened" 
-                      (declarations:ds statements:ss)? "closed"       -> concat ['Block'], ds, ss ? []
+    block           = "opened" createScope:scope
+                      (declarations:ds statements:ss)? 
+                      "closed" exitScope                              -> concat ['Block', scope], ds, ss ? []
     declarations    = declaration*
     declaration     = function 
                     | variable:v terminator                           -> v
@@ -70,7 +71,7 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
                     | negation
     negation        = "!" negation:b                                  -> @logic '!', b
                     | comparison
-    comparison      = comparison:e1 comparisonOp:op expression:e2     -> @comparison op, e1, e2
+    comparison      = comparison:e1 comparisonOp:op expression:e2     -> @compare op, e1, e2
                     | bitwiseOr
     comparisonOp    = "==" | ">=" | "<=" | "!=" | "<" | ">"
     bitwiseOr       = bitwiseOr:e1 "|" bitwiseXOr:e2                  -> @arithmetic '|', e1, e2
@@ -90,7 +91,7 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     unaryOp         = "~" | "-" | "+"
     value           = number | character | string
                     | arrayPiece | call
-                    | identifier:i                                    -> @identifier i
+                    | identifier:i                                    -> @reference i
                     | "(" expression:e ")"                            -> e
     arrayPiece      = identifier:i "'s" expression:e "piece"          -> ['Element', i, e]
     number          = spaces digit+:ds                                -> ['Number', types.number, join ds]
@@ -103,6 +104,7 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
                                                                            MAlice.__super__.token.call(this, word)
     createScope     -> outerScope = @currentScope
                        @currentScope = outer: outerScope, declarations: {}
+    exitScope       -> @currentScope = @currentScope.outer
     initialize      -> @keywords = getKeywords @usedTokens
 
   # Types
@@ -130,7 +132,7 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
       @checkBoth b1, b2, [types.boolean]
       ['Logic', types.boolean, operator, b1, b2]
 
-    comparison: (operator, e1, e2) ->
+    compare: (operator, e1, e2) ->
       @checkBoth e1, e2, [types.number, types.letter]
       ['Comparison', types.boolean, operator, e1, e2]
 
@@ -138,7 +140,7 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
       @checkBoth e1, e2, [types.number]
       ['Arithmetic', types.number, operator, e1, e2]
 
-    identifier: (name) ->
+    reference: (name) ->
       {type} = @lookup(name)
       ['Identifier', type, name]
 
