@@ -64,45 +64,35 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
                     | "letter"
                     | "sentence"
     expression      = or
-    or              = or:b1  "||" and:b2                              -> @checkBoth(b1, b2, types.bool)
-                                                                         ['Or', b1, b2]
+    or              = or:b1  "||" and:b2                              -> @logic('||', b1, b2)
                     | and
-    and             = and:b1 "&&" negation:b2                         -> @checkBoth(b1, b2, types.bool)
-                                                                         ['And', b1, b2]
+    and             = and:b1 "&&" negation:b2                         -> @logic('&&', b1, b2)
                     | negation
-    negation        = "!" negation:b                                  -> @check(b, types.bool)
-                                                                         ['Not', b]
+    negation        = "!" negation:b                                  -> @logic('!', b)
                     | comparison
-    comparison      = comparison:e1 comparisonOp:op expression:e2     -> @checkBoth(e1, e2, types.num, types.char)
-                                                                         ['Compare', op, e1, e2]
+    comparison      = comparison:e1 comparisonOp:op expression:e2     -> @comparison op, e1, e2
                     | bitwiseOr
     comparisonOp    = "==" | ">=" | "<=" | "!=" | "<" | ">"
-    bitwiseOr       = bitwiseOr:e1 "|" bitwiseXOr:e2                  -> @checkBoth(e1, e2, types.num)
-                                                                         ['Arithmetic', '|', e1, e2]
+    bitwiseOr       = bitwiseOr:e1 "|" bitwiseXOr:e2                  -> @arithmetic '|', e1, e2
                     | bitwiseXOr
-    bitwiseXOr      = bitwiseXOr:e1 "^" bitwiseAnd:e2                 -> @checkBoth(e1, e2, types.num)
-                                                                         ['Arithmetic', '^', e1, e2]
+    bitwiseXOr      = bitwiseXOr:e1 "^" bitwiseAnd:e2                 -> @arithmetic '^', e1, e2
                     | bitwiseAnd
-    bitwiseAnd      = bitwiseAnd:e1 "&" additive:e2                   -> @checkBoth(e1, e2, types.num)
-                                                                         ['Arithmetic', '&', e1, e2]
+    bitwiseAnd      = bitwiseAnd:e1 "&" additive:e2                   -> @arithmetic '&', e1, e2
                     | additive
-    additive        = additive:e1 additiveOp:op multiplicative:e2     -> @checkBoth(e1, e2, types.num)
-                                                                         ['Arithmetic', op, e1, e2]
+    additive        = additive:e1 additiveOp:op multiplicative:e2     -> @arithmetic op, e1, e2
                     | multiplicative
     additiveOp      = "+" | "-"
-    multiplicative  = multiplicative:e1 multiplicativeOp:op unary:e2  -> @checkBoth(e1, e2, types.num)
-                                                                         ['Arithmetic', op, e1, e2]
+    multiplicative  = multiplicative:e1 multiplicativeOp:op unary:e2  -> @arithmetic op, e1, e2
                     | unary
     multiplicativeOp= "*" | "/" | "%"
-    unary           = unaryOp:op unary:e                              -> @check(e, types.num) 
-                                                                         ['Unary', op, e]
+    unary           = unaryOp:op unary:e                              -> @arithmetic op, e
                     | value
     unaryOp         = "~" | "-" | "+"
     value           = number | character | string
                     | arrayPiece | call | identifier
                     | "(" expression:e ")"                            -> e
     arrayPiece      = identifier:i "'s" expression:e "piece"          -> ['Element', i, e]
-    number          = spaces digit+:ds                                -> join ds
+    number          = spaces digit+:ds                                -> ['Number', types.number, join ds]
     character       = spaces '\'' letter:c '\''                       -> c
     string          = spaces '"' (!'"' anything)*:xs '"'              -> join xs
     identifier      = spaces (letter:x (letter | '_' | digit)*:xs     -> x + join xs):i
@@ -111,5 +101,36 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     spaced :s                                                         -> for word in s.split ' '
                                                                            MAlice.__super__.token.call(this, word)
     initialize                                                        -> @keywords = getKeywords @usedTokens
+
+  # Types
+
+  types =
+    number: "number"
+    letter: "letter"
+    sentence: "sentence"
+    boolean: "boolean"
+    spider: (type) ->
+      "array of #{type}s"
+
+  MAlice::logic = (operator, b1, b2) ->
+    @checkBoth b1, b2, [types.boolean]
+    ['Logic', types.boolean, operator, b1, b2]
+
+
+  MAlice::arithmetic = (operator, e1, e2) ->
+    @checkBoth e1, e2, [types.number]
+    ['Arithmetic', types.number, operator, e1, e2]
+
+  MAlice::checkBoth = (e1, e2, validTypes) ->
+    check e1, validTypes
+    check e2, validTypes if e2?
+
+  MAlice::check = (e, validTypes) ->
+    [_, type, _...] = e
+    unless type in validTypes
+      console.error "Type mismatch, expected #{validTypes.join(' or ')}, got #{type}"
+
+
+
 
   MAlice.matchAll(input, "program", undefined, ometaError)
