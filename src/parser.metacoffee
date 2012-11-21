@@ -1,3 +1,5 @@
+dump = require './jsDump'
+
 module.exports = (OMeta, OMLib) -> parse: (input) ->
   {ometaError} = OMLib
 
@@ -15,7 +17,7 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     word for word in words when 'a' <= word[0] <= 'z' or 'A' <= word[0] <= 'Z'
 
   ometa MAlice
-    program         = createScope declarations:ds spaces end          -> concat ['Program'], ds
+    program         = createScope:global declarations:ds spaces end   -> concat ['Program', global], ds
     function        = (valueFunction | voidFunction):d                -> concat ['Function'], d
     valueFunction   = "The room"          identifier:i args:as
                       "contained a" type:returnType
@@ -25,18 +27,18 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     args            = "(" listOf('argDeclaration', ','):as ")"        -> as
     argDeclaration  = eType:t identifier:n                            -> [t, n]
     block           = "opened" createScope:scope
-                      (declarations:ds statements:ss)? 
+                      (declarations:ds statements:ss)?
                       "closed" exitScope                              -> concat ['Block', scope], ds, ss ? []
     declarations    = declaration*
-    declaration     = function 
+    declaration     = function
                     | variable:v terminator                           -> v
     variable        = identifier:i "was a" type:t
-                      (("of" expression:e) | "too")?                  -> @variable i, t, e
-                    | identifier:i "had" expression:n type:t          -> ['Array', i, n, t]
+                      (("of" expression:e) | "too")?                  -> @declareVariable i, t, e
+                    | identifier:i "had" expression:n type:t          -> @declareArray i, n, t
     statements      = statement+
     statement       = (assignment | saying | call):s terminator       -> s
                     | "."                                             -> ['Skip']
-                    | finding | question | conditional | loop 
+                    | finding | question | conditional | loop
                     | block
     terminator      =  ("." | "," | "and" | "but" | "then")
     assignment      = assignable:x ("became" expression:e             -> ['Assignment', x, e]
@@ -50,20 +52,20 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     finding         = "Alice found" expression:e "."                  -> ['Return', e]
     question        = "what was" assignable:x "?"                     -> ['Input', x]
     conditional     = ("perhaps" | "either") "(" expression:c ") so"
-                        statements:ss 
+                        statements:ss
                       orMaybe?:elif "because Alice was unsure which"  -> ['If', c, ss, elif]
     orMaybe         = "or maybe (" expression:c ") so"
-                        statements:ss 
+                        statements:ss
                       orMaybe?:elif                                   -> ['If', c, ss, elif]
                     | "or"
                         statements:ss                                 -> ss
     loop            = "eventually (" expression:c ") because"
                         statements:ss "enough times"                  -> ['Until', c, ss]
-    eType           = "spider" type:t                                 -> ['Spider', t]
+    eType           = "spider" type:t                                 -> types.spider t
                     | type
-    type            = "number"
-                    | "letter"
-                    | "sentence"
+    type            = "number"                                        -> types.number
+                    | "letter"                                        -> types.letter
+                    | "sentence"                                      -> types.sentence
     expression      = or
     or              = or:b1  "||" and:b2                              -> @logic '||', b1, b2
                     | and
@@ -103,7 +105,7 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     spaced :s                                                         -> for word in s.split ' '
                                                                            MAlice.__super__.token.call(this, word)
     createScope     -> outerScope = @currentScope
-                       @currentScope = outer: outerScope, declarations: {}
+                       @currentScope = new Scope outerScope, {}
     exitScope       -> @currentScope = @currentScope.outer
     initialize      -> @keywords = getKeywords @usedTokens
 
@@ -118,16 +120,28 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     spider: (type) ->
       "array of #{type}s"
 
-  MAlice::variable = (name, type, value) ->
-    reference = @currentScope.declarations[name]
-    if reference?
-      console.error "#{name} already declared in current scope"
-    else
-      @currentScope.declarations[name] =
-        name: name
-        type: type
 
   class MAliceSemantics extends MAlice
+    declareVariable: (name, type, value) ->
+      @declare name, type
+      ['Variable', type, value]
+
+    declareArray: (name, size, elementType) ->
+      type =
+        if check size, [types.number]
+          @declare name, types.spider elementType
+        else
+          @declare name, types.error
+      ['Array', type, size, value]
+
+    declare: (name, type) ->
+      alreadyDeclared = @currentScope.declarations[name]
+      if alreadyDeclared?
+        console.error "#{name} already declared in current scope"
+      else
+        @currentScope.declarations[name] = type: type
+      type
+
     logic: (operator, b1, b2) ->
       @checkBoth b1, b2, [types.boolean]
       ['Logic', types.boolean, operator, b1, b2]
@@ -141,7 +155,7 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
       ['Arithmetic', types.number, operator, e1, e2]
 
     reference: (name) ->
-      {type} = @lookup(name)
+      {type} = @lookupType(name)
       ['Identifier', type, name]
 
     checkBoth: (e1, e2, validTypes) ->
@@ -152,18 +166,26 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
       [_, type, _...] = e
       unless type in validTypes
         console.error "Type mismatch, expected #{validTypes.join(' or ')}, got #{type}"
+        false
+      true
 
-    lookup: (name) ->
-      @lookupIn name, @currentScope
+    lookupType: (name) ->
+      @lookupTypeIn name, @currentScope
 
-    lookupIn: (name, scope) ->
+    lookupTypeIn: (name, scope) ->
       reference = scope.declarations[name]
       if reference?
         return reference
       if scope.outer
-        return @lookup name, scope.outer
+        return @lookupTypeIn name, scope.outer
       else
         console.error "#{name} undeclared"
-        return {name: name, type: types.error}
+        return {type: types.error}
+
+  class Scope
+    constructor: (@outer, @declarations) ->
+
+    toString: ->
+      "In scope: #{dump.parse @declarations}"
 
   MAliceSemantics.matchAll(input, "program", undefined, ometaError)

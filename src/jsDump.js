@@ -108,8 +108,6 @@ var jsDump;
             if ( 'callee' in obj )
               // Opera: Object.prototype.toString.call(arguments) == 'Object' :(
               return 'arguments';
-            else if (window.jQuery && obj instanceof window.jQuery)
-              return 'jquery';
             else if ( 'ownerDocument' in obj && 'defaultView' in obj.ownerDocument && obj instanceof obj.ownerDocument.defaultView.Node )
               return 'node';
         }
@@ -168,6 +166,9 @@ var jsDump;
         if (this._depth_ >= this.maxDepth) {
           this._depth_ = 1; // Reset for future use
           throw new Error("Object nesting exceeded jsDump.maxDepth (" + jsDump.maxDepth + ")");
+        }
+        if( map.toString !== {}.toString ) {
+          return map.toString();
         }
         var ret = [ ];
         this.up();
