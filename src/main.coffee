@@ -1,11 +1,9 @@
-
-
 # Module dependencies.
 
-{readFileSync} = require 'fs'
-program = require 'commander'
+fs         = require 'fs'
+program    = require 'commander'
 makeparser = require './makeparser'
-dumper  = require './jsDump'
+dumper     = require './jsDump'
 dump = (data) -> dumper.parse data
 
 # commander.js settings
@@ -18,7 +16,11 @@ program
 
 makeparser (parser) ->
   for file in program.args
-    program = readFileSync file, 'utf8'
-    console.log 'Missing file #{file}' unless program?
-    syntaxTree = parser.parse program
-    console.log dump syntaxTree
+    try
+      sourceCode = fs.readFileSync file, 'utf8'
+    catch e
+      console.error "File '#{file}' couldn't be loaded!"
+    if sourceCode
+      syntaxTree = parser.parse sourceCode
+      console.log dump syntaxTree
+
