@@ -1,7 +1,7 @@
 dump = require './jsDump'
 
 module.exports = (OMeta, OMLib) -> parse: (input) ->
-  {ometaError} = OMLib
+  {ometaError, Set} = OMLib
 
   join = (xs) ->
     xs.join ''
@@ -13,17 +13,19 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     console.log x for x in xs
 
   getKeywords = (usedTokens) ->
-    words = concat (token.split ' ' for token in usedTokens)...
-    word for word in words when 'a' <= word[0] <= 'z' or 'A' <= word[0] <= 'Z'
+    keywords = new Set
+    words = concat (token.split /\W/ for token in usedTokens)...
+    (keywords.add word) for word in words when 'a' <= word[0] <= 'z' or 'A' <= word[0] <= 'Z'
+    keywords.values()
 
   ometa MAlice
     program         = createScope:global declarations:ds spaces end   -> concat ['Program', global], ds
     function        = (valueFunction | voidFunction):d                -> concat ['Function'], d
     valueFunction   = "The room"          identifier:i args:as
                       "contained a" type:returnType
-                      block:b                                         -> concat [returnType, i, as, b]
+                      block:b                                         -> @declareFunction i, returnType, as, b
     voidFunction    = "The looking-glass" identifier:i args:as
-                      block:b                                         -> ['void', i, as, b]
+                      block:b                                         -> @declareFunction i, 'void', as, b
     args            = "(" listOf('argDeclaration', ','):as ")"        -> as
     argDeclaration  = eType:t identifier:n                            -> [t, n]
     block           = "opened" createScope:scope
@@ -116,14 +118,22 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     letter: "letter"
     sentence: "sentence"
     boolean: "boolean"
+    function: "function"
     error: "error"
     spider: (type) ->
       "array of #{type}s"
 
 
   class MAliceSemantics extends MAlice
+    declareFunction: (name, returnType, args, body) ->
+      @declare
+               type:      types.error
+               returns:   returnType
+               args: args
+      ['Function', name, returnType, args, body]
+
     declareVariable: (name, type, value) ->
-      @declare name, type
+      @declare name, type: type
       ['Variable', type, value]
 
     declareArray: (name, size, elementType) ->
@@ -186,6 +196,6 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     constructor: (@outer, @declarations) ->
 
     toString: ->
-      "In scope: #{dump.parse @declarations}"
+      "Scope#{dump.parse @declarations}"
 
   MAliceSemantics.matchAll(input, "program", undefined, ometaError)
