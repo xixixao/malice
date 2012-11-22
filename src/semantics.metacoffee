@@ -1,0 +1,203 @@
+module.exports = (OMeta, OMLib) -> analyze: (ast) ->
+
+  error = console.error
+
+  ometa MAliceSemantics
+    trans = [:t apply(t):ans] -> ans
+
+    Program createScope:scope trans*:declarations
+      ->
+
+    Function :name :returnType :args
+             createScope:scope {scope.addAll args} :body exitScope
+      ->
+        @declare new Function name, returnType, args
+
+    Argument :name :type
+      ->
+        new Reference name, type
+
+    Block createScope:scope trans* exitScope
+      ->
+
+    Variable :name :type :value
+      ->
+        @declare new Reference name, type
+
+    Array :name :size :elementType
+      ->
+        sizeValidType = @check size, [types.number]
+        type = if sizeValidType then (new Spider elementType) else types.error
+        @declare new Reference name, type
+
+    Skip
+      ->
+    Assignment :assignable :value
+      ->
+        error "Wrong type in assignment" unless assignable.type.equals value.type
+
+    Decrement :name
+      ->
+        variable = lookup name
+        error "Wrong type" unless variable.type.equals types.number
+    Increment :name
+      ->
+        variable = lookup name
+        error "Wrong type" unless variable.type.equals types.number
+    Output :value
+      ->
+        error "Arrays have no representation" if value.type.isSpider?
+    Call :function :args
+      ->
+        error "Trying to call what is not a function" unless function.isFunction?
+        error "Wrong number of arguments" if args.length isnt function.args.length
+        for arg, i in args
+          error "Wrong type of an argument" unless arg.type.equals function.args[i].type
+    Return :value
+      ->
+        error "Arrays cannot be returned" if value.type.isSpider?
+    Input :name
+      ->
+        error "Arrays cannot be inputted" if value.type.isSpider?
+    If :cond [trans*] [trans*]
+      ->
+        error "Condition must be a boolean" unless cond.type.equals types.boolean
+    Until :cond [trans*]
+      ->
+        error "Condition must be a boolean" unless cond.type.equals types.boolean
+
+    Spider :itemType
+      ->
+        new Spider itemType
+
+    Type :label
+      ->
+        new Type label
+
+    Logic :op :b1 :b2
+      ->
+        error "Wrong type of operand, expected boolean" unless b1.type.equals types.boolean
+        error "Wrong type of operand, expected boolean" unless b2.type.equals types.boolean
+        new Value types.boolean
+
+    Compare :op :e1 :e2
+      ->
+        error "Wrong type of operand, expected number or a letter" unless (e1.type.equalsAny types.number, types.letter)
+        new Value types.boolean
+
+    Arithmetic :op :e1 :e2
+      ->
+        error "Wrong type of operand, expected number" unless e1.type.equals types.number
+        error "Wrong type of operand, expected number" unless e2.type.equals types.number
+        new Value types.number
+
+    Element :array :index
+      ->
+        if not array.type.isSpider
+          error "Trying to access element of nonarray"
+          type = types.error
+        else
+          type = array.type.itemType
+        error "Array's index must be a number" unless index.type.equals types.number
+        new Value type
+
+    Number :n
+      ->
+        new Value types.number
+
+    Letter :ch
+      ->
+        new Value types.number
+
+    Sentece :string
+      ->
+        new Value types.sentence
+
+    createScope
+      ->
+        outerScope = @currentScope
+        @currentScope = new Scope outerScope, {}
+
+    exitScope
+      ->
+        @currentScope = @currentScope.outer
+
+    declare :identifier
+      ->
+        alreadyDeclared = @currentScope.declared identifier
+        if alreadyDeclared?
+          console.error "#{name} already declared in current scope"
+        else
+          @currentScope.add identifier
+
+  # Types
+
+  types =
+    number: new Type "number"
+    letter: new Type "letter"
+    sentence: new Type "sentence"
+    boolean: new Type "boolean"
+    error: new ErrorType
+
+    lookup: (name) ->
+      @lookupIn name, @currentScope
+
+    lookupIn: (name, scope) ->
+      reference = scope.declarations[name]
+      if reference?
+        return reference
+      if scope.outer
+        return @lookupIn name, scope.outer
+      else
+        console.error "#{name} undeclared"
+        return {type: types.error}
+
+  class Node
+    constructor: (@type) ->
+
+  class Scope
+    constructor: (@outer, @declarations) ->
+
+    toString: ->
+      "Scope#{dump.parse @declarations}"
+
+    add: (identifier) ->
+      @declarations[identifier.name] = identifier
+
+    addAll: (identifiers) ->
+      @add identifier for identifier in identifiers
+
+    declared: (identifier) ->
+      @declarations[identifier.name]?
+
+  class Identifier # Could also hold a reference to the ASTnode that declares Identifier
+
+  class Type extends Identifier
+    constructor: (@label) ->
+    equals: (t) ->
+      @label is t.label or t.isError
+    equalsAny: (ts...) ->
+      ts.some (t) -> @equals t
+
+  class ErrorType extends Identifier
+    isError: yes
+    equals: (t) ->
+      yes
+
+  class Value extends Identifier
+    constructor: (@type) ->
+
+  class Reference extends Identifier
+    constructor: (@name, @type) ->
+
+  class Function extends Identifier
+    constructor: (@name, @returnType, @args, @scope) ->
+    isFunction: yes
+
+  class Spider extends Type
+    constructor: (@itemType) ->
+    isSpider: yes
+    equals: (t) ->
+      @.itemType.equals t.itemType
+
+  MAliceSemantics.match ast, "trans", undefined, ometaError

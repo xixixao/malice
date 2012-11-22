@@ -19,24 +19,23 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     keywords.values()
 
   ometa MAlice
-    program         = createScope:global declarations:ds spaces end   -> concat ['Program', global], ds
+    program         = declarations:ds spaces end                      -> concat ['Program', global], ds
     function        = (valueFunction | voidFunction):d                -> concat ['Function'], d
     valueFunction   = "The room"          identifier:i args:as
                       "contained a" type:returnType
-                      block:b                                         -> @declareFunction i, returnType, as, b
+                      block:b                                         -> [i, returnType, as, b]
     voidFunction    = "The looking-glass" identifier:i args:as
-                      block:b                                         -> @declareFunction i, 'void', as, b
+                      block:b                                         -> [i, 'void', as, b]
     args            = "(" listOf('argDeclaration', ','):as ")"        -> as
-    argDeclaration  = eType:t identifier:n                            -> [t, n]
-    block           = "opened" createScope:scope
-                      (declarations:ds statements:ss)?
-                      "closed" exitScope                              -> concat ['Block', scope], ds, ss ? []
+    argDeclaration  = eType:t identifier:n                            -> ['Argument', n, t]
+    block           = "opened"
+                      (declarations:ds statements:ss)? "closed"       -> concat ['Block', scope], ds, ss ? []
     declarations    = declaration*
     declaration     = function
                     | variable:v terminator                           -> v
     variable        = identifier:i "was a" type:t
-                      (("of" expression:e) | "too")?                  -> @declareVariable i, t, e
-                    | identifier:i "had" expression:n type:t          -> @declareArray i, n, t
+                      (("of" expression:e) | "too")?                  -> ['Variable', i, t, e]
+                    | identifier:i "had" expression:n type:t          -> ['Array', i, n, t]
     statements      = statement+
     statement       = (assignment | saying | call):s terminator       -> s
                     | "."                                             -> ['Skip']
@@ -63,139 +62,47 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
                         statements:ss                                 -> ss
     loop            = "eventually (" expression:c ") because"
                         statements:ss "enough times"                  -> ['Until', c, ss]
-    eType           = "spider" type:t                                 -> types.spider t
+    eType           = "spider" type:t                                 -> ['Spider', t]
                     | type
-    type            = "number"                                        -> types.number
-                    | "letter"                                        -> types.letter
-                    | "sentence"                                      -> types.sentence
+    type            = ("number" | "letter" | "sentence"):t            -> ['Type', t]
     expression      = or
-    or              = or:b1  "||" and:b2                              -> @logic '||', b1, b2
+    or              = or:b1  "||" and:b2                              -> ['Logic', '||', b1, b2]
                     | and
-    and             = and:b1 "&&" negation:b2                         -> @logic '&&', b1, b2
+    and             = and:b1 "&&" negation:b2                         -> ['Logic', '&&', b1, b2]
                     | negation
-    negation        = "!" negation:b                                  -> @logic '!', b
+    negation        = "!" negation:b                                  -> ['Logic', '!', b]
                     | comparison
-    comparison      = comparison:e1 comparisonOp:op expression:e2     -> @compare op, e1, e2
+    comparison      = comparison:e1 comparisonOp:op expression:e2     -> ['Compare', op, e1, e2]
                     | bitwiseOr
     comparisonOp    = "==" | ">=" | "<=" | "!=" | "<" | ">"
-    bitwiseOr       = bitwiseOr:e1 "|" bitwiseXOr:e2                  -> @arithmetic '|', e1, e2
+    bitwiseOr       = bitwiseOr:e1 "|" bitwiseXOr:e2                  -> ['Arithmetic', '|', e1, e2]
                     | bitwiseXOr
-    bitwiseXOr      = bitwiseXOr:e1 "^" bitwiseAnd:e2                 -> @arithmetic '^', e1, e2
+    bitwiseXOr      = bitwiseXOr:e1 "^" bitwiseAnd:e2                 -> ['Arithmetic', '^', e1, e2]
                     | bitwiseAnd
-    bitwiseAnd      = bitwiseAnd:e1 "&" additive:e2                   -> @arithmetic '&', e1, e2
+    bitwiseAnd      = bitwiseAnd:e1 "&" additive:e2                   -> ['Arithmetic', '&', e1, e2]
                     | additive
-    additive        = additive:e1 additiveOp:op multiplicative:e2     -> @arithmetic op, e1, e2
+    additive        = additive:e1 additiveOp:op multiplicative:e2     -> ['Arithmetic', op, e1, e2]
                     | multiplicative
     additiveOp      = "+" | "-"
-    multiplicative  = multiplicative:e1 multiplicativeOp:op unary:e2  -> @arithmetic op, e1, e2
+    multiplicative  = multiplicative:e1 multiplicativeOp:op unary:e2  -> ['Arithmetic', op, e1, e2]
                     | unary
     multiplicativeOp= "*" | "/" | "%"
-    unary           = unaryOp:op unary:e                              -> @arithmetic op, e
+    unary           = unaryOp:op unary:e                              -> ['Arithmetic', op, e]
                     | value
     unaryOp         = "~" | "-" | "+"
     value           = number | character | string
                     | arrayPiece | call
-                    | identifier:i                                    -> @reference i
+                    | identifier:i                                    -> ['Dereference', i]
                     | "(" expression:e ")"                            -> e
     arrayPiece      = identifier:i "'s" expression:e "piece"          -> ['Element', i, e]
-    number          = spaces digit+:ds                                -> ['Number', types.number, join ds]
-    character       = spaces '\'' letter:c '\''                       -> ['Letter', types.letter, c]
-    string          = spaces '"' (!'"' anything)*:xs '"'              -> ['Sentence', types.sentence, join xs]
+    number          = spaces digit+:ds                                -> ['Number', join ds]
+    character       = spaces '\'' letter:c '\''                       -> ['Letter', c]
+    string          = spaces '"' (!'"' anything)*:xs '"'              -> ['Sentence', join xs]
     identifier      = spaces (letter:x (letter | '_' | digit)*:xs     -> x + join xs):i
                       !{i in @keywords}                               -> i
     token :s        = spaced(s):ts (!letter(s[-1..]) | !letter)       -> ts.join ' '
     spaced :s                                                         -> for word in s.split ' '
                                                                            MAlice.__super__.token.call(this, word)
-    createScope     -> outerScope = @currentScope
-                       @currentScope = new Scope outerScope, {}
-    exitScope       -> @currentScope = @currentScope.outer
     initialize      -> @keywords = getKeywords @usedTokens
 
-  # Types
-
-  types =
-    number: "number"
-    letter: "letter"
-    sentence: "sentence"
-    boolean: "boolean"
-    function: "function"
-    error: "error"
-    spider: (type) ->
-      "array of #{type}s"
-
-
-  class MAliceSemantics extends MAlice
-    declareFunction: (name, returnType, args, body) ->
-      @declare
-               type:      types.error
-               returns:   returnType
-               args: args
-      ['Function', name, returnType, args, body]
-
-    declareVariable: (name, type, value) ->
-      @declare name, type: type
-      ['Variable', type, value]
-
-    declareArray: (name, size, elementType) ->
-      type =
-        if check size, [types.number]
-          @declare name, types.spider elementType
-        else
-          @declare name, types.error
-      ['Array', type, size, value]
-
-    declare: (name, type) ->
-      alreadyDeclared = @currentScope.declarations[name]
-      if alreadyDeclared?
-        console.error "#{name} already declared in current scope"
-      else
-        @currentScope.declarations[name] = type: type
-      type
-
-    logic: (operator, b1, b2) ->
-      @checkBoth b1, b2, [types.boolean]
-      ['Logic', types.boolean, operator, b1, b2]
-
-    compare: (operator, e1, e2) ->
-      @checkBoth e1, e2, [types.number, types.letter]
-      ['Comparison', types.boolean, operator, e1, e2]
-
-    arithmetic: (operator, e1, e2) ->
-      @checkBoth e1, e2, [types.number]
-      ['Arithmetic', types.number, operator, e1, e2]
-
-    reference: (name) ->
-      {type} = @lookupType(name)
-      ['Identifier', type, name]
-
-    checkBoth: (e1, e2, validTypes) ->
-      @check e1, validTypes
-      @check e2, validTypes if e2?
-
-    check: (e, validTypes) ->
-      [_, type, _...] = e
-      unless type in validTypes
-        console.error "Type mismatch, expected #{validTypes.join(' or ')}, got #{type}"
-        false
-      true
-
-    lookupType: (name) ->
-      @lookupTypeIn name, @currentScope
-
-    lookupTypeIn: (name, scope) ->
-      reference = scope.declarations[name]
-      if reference?
-        return reference
-      if scope.outer
-        return @lookupTypeIn name, scope.outer
-      else
-        console.error "#{name} undeclared"
-        return {type: types.error}
-
-  class Scope
-    constructor: (@outer, @declarations) ->
-
-    toString: ->
-      "Scope#{dump.parse @declarations}"
-
-  MAliceSemantics.matchAll(input, "program", undefined, ometaError)
+  MAlice.matchAll input, "program", undefined, ometaError

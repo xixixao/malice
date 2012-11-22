@@ -14,7 +14,7 @@ program
 
 # Compile files
 
-makeparser (parser) ->
+makeparser (parser, semantics) ->
   for file in program.args
     try
       sourceCode = fs.readFileSync file, 'utf8'
@@ -22,5 +22,6 @@ makeparser (parser) ->
       console.error "File '#{file}' couldn't be loaded!"
     if sourceCode
       syntaxTree = parser.parse sourceCode
+      semantics.analyze syntaxTree
       console.log dump syntaxTree
 

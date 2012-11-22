@@ -1,29 +1,20 @@
 # Module dependencies.
-{readFile, writeFile} = require 'fs'
+{readFileSync, writeFileSync} = require 'fs'
 metacoffee = require 'metacoffee'
 
 module.exports = (callback) ->
+
+  compile = (ometa, part) ->
+    partSource = readFileSync "src/#{part}.metacoffee", "utf-8"
+
+    [OMeta, OMLib, compiled] = ometa partSource
+
+    writeFileSync "src/#{part}.js", compiled, "utf-8"
+
+    compiledPart = require './#{part}'
+    return compiledPart OMeta, OMLib
+
   metacoffee (ometa) ->
-    readFile "src/parser.metacoffee", "utf-8", (err, source) ->
-      if (err)
-        throw err
-      
-      debug = false
-      if debug
-        console.log "Compiling parser"
-        console.log "---source---"
-        console.log source
-        console.log "---source---"
-
-      [OMeta, OMLib, compiled] = ometa source
-
-      if debug
-        console.log "---result---"
-        console.log compiled
-        console.log "---result---"
-
-      writeFile "src/parser.js", compiled, "utf-8", ->
-        parser = require './parser'
-        parser = parser OMeta, OMLib
-
-        callback(parser)
+    parser = compile ometa, 'parser'
+    semantics = compile ometa, 'semantics'
+    callback(parser, semantics)
