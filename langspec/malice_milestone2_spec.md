@@ -85,6 +85,9 @@ To access the i'th element of an array
 - 13 assignments must match types
 - 15 logics must be used on booleans
 - 20 references must be in scope
-- 22 arrays are not assignable or printable
+- 22 arrays are not assignable or printable, inputtable, returnable
 - 23 check types across calls
 - 28 unary operator types
+- 29 room calls must be assigned
+- 30 comparisons work on numbers and letters only
+- 33 conditions must be boolean
