@@ -8,11 +8,11 @@ module.exports = (OMeta, OMLib) -> analyze: (ast) ->
 
     Program createScope:scope trans*:declarations
 
-    Function :name trans:returnType trans*:args createScope:scope {scope.addAll args} trans:body exitScope
+    Function :name trans:returnType [trans*]:args createScope:scope {scope.addAll args} trans:body exitScope
       ->
         @declare new FunctionIdentifier name, returnType, args
 
-    Argument :name trans:type
+    Argument :name :type
       ->
         new Reference name, type
 
@@ -20,7 +20,6 @@ module.exports = (OMeta, OMLib) -> analyze: (ast) ->
 
     Variable :name trans:type trans:value
       ->
-        error "Initializing to wrong type" if value? and not value.type.equals type
         @declare new Reference name, type
 
     Array :name trans:size trans:elementType

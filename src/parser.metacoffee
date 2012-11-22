@@ -23,7 +23,7 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
                       "contained a" type:returnType
                       block:b                                         -> [i, returnType, as, b]
     voidFunction    = "The looking-glass" identifier:i args:as
-                      block:b                                         -> [i, 'void', as, b]
+                      block:b                                         -> [i, ['Type', 'void'], as, b]
     args            = "(" listOf('argDeclaration', ','):as ")"        -> as
     argDeclaration  = eType:t identifier:n                            -> ['Argument', n, t]
     block           = "opened"
@@ -32,7 +32,7 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     declaration     = function
                     | variable:v terminator                           -> v
     variable        = identifier:i "was a" type:t
-                      (("of" expression:e) | "too")?                  -> ['Variable', i, t, e]
+                      (("of" expression:e) | "too")?                  -> ['Variable', i, t, e ? ['Skip']]
                     | identifier:i "had" expression:n type:t          -> ['Array', i, n, t]
     statements      = statement+
     statement       = (assignment | saying | call):s terminator       -> s
