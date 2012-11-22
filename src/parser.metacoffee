@@ -1,5 +1,3 @@
-dump = require './jsDump'
-
 module.exports = (OMeta, OMLib) -> parse: (input) ->
   {ometaError, Set} = OMLib
 
@@ -19,7 +17,7 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     keywords.values()
 
   ometa MAlice
-    program         = declarations:ds spaces end                      -> concat ['Program', global], ds
+    program         = declarations:ds spaces end                      -> concat ['Program'], ds
     function        = (valueFunction | voidFunction):d                -> concat ['Function'], d
     valueFunction   = "The room"          identifier:i args:as
                       "contained a" type:returnType
@@ -29,7 +27,7 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     args            = "(" listOf('argDeclaration', ','):as ")"        -> as
     argDeclaration  = eType:t identifier:n                            -> ['Argument', n, t]
     block           = "opened"
-                      (declarations:ds statements:ss)? "closed"       -> concat ['Block', scope], ds, ss ? []
+                      (declarations:ds statements:ss)? "closed"       -> concat ['Block'], ds, ss ? []
     declarations    = declaration*
     declaration     = function
                     | variable:v terminator                           -> v
@@ -46,7 +44,7 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
                                    | "drank"                          -> ['Decrement', x]
                                    | "ate"                            -> ['Increment', x]
                                    )
-    assignable      = arrayPiece | identifier
+    assignable      = arrayPiece | dereference
     saying          = expression:e ("said Alice" | "spoke")           -> ['Output', e]
     call            = identifier:i "(" expressionList:es ")"          -> ['Call', i, es]
     expressionList  = listOf('expression', ',')
@@ -91,10 +89,10 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
                     | value
     unaryOp         = "~" | "-" | "+"
     value           = number | character | string
-                    | arrayPiece | call
-                    | identifier:i                                    -> ['Dereference', i]
+                    | arrayPiece | call | dereference
                     | "(" expression:e ")"                            -> e
-    arrayPiece      = identifier:i "'s" expression:e "piece"          -> ['Element', i, e]
+    arrayPiece      = dereference:i "'s" expression:e "piece"         -> ['Element', i, e]
+    dereference     = identifier:i                                    -> ['Dereference', i]
     number          = spaces digit+:ds                                -> ['Number', join ds]
     character       = spaces '\'' letter:c '\''                       -> ['Letter', c]
     string          = spaces '"' (!'"' anything)*:xs '"'              -> ['Sentence', join xs]

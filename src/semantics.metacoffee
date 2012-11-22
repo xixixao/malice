@@ -1,99 +1,101 @@
-module.exports = (OMeta, OMLib) -> analyze: (ast) ->
+dump = require './jsDump'
 
+module.exports = (OMeta, OMLib) -> analyze: (ast) ->
   error = console.error
 
   ometa MAliceSemantics
     trans = [:t apply(t):ans] -> ans
 
     Program createScope:scope trans*:declarations
-      ->
 
-    Function :name :returnType :args
-             createScope:scope {scope.addAll args} :body exitScope
+    Function :name trans:returnType trans*:args createScope:scope {scope.addAll args} trans:body exitScope
       ->
-        @declare new Function name, returnType, args
+        @declare new FunctionIdentifier name, returnType, args
 
-    Argument :name :type
+    Argument :name trans:type
       ->
         new Reference name, type
 
     Block createScope:scope trans* exitScope
-      ->
 
-    Variable :name :type :value
+    Variable :name trans:type trans:value
       ->
+        error "Initializing to wrong type" if value? and not value.type.equals type
         @declare new Reference name, type
 
-    Array :name :size :elementType
+    Array :name trans:size trans:elementType
       ->
         sizeValidType = @check size, [types.number]
-        type = if sizeValidType then (new Spider elementType) else types.error
+        type = if sizeValidType then (new ArrayIdentifier elementType) else types.error
         @declare new Reference name, type
 
     Skip
       ->
-    Assignment :assignable :value
+    Assignment trans:assignable trans:value
       ->
+        console.log "assignable: " + dump.parse assignable
         error "Wrong type in assignment" unless assignable.type.equals value.type
 
-    Decrement :name
+    Decrement trans:variable
       ->
-        variable = lookup name
         error "Wrong type" unless variable.type.equals types.number
-    Increment :name
+    Increment trans:variable
       ->
-        variable = lookup name
         error "Wrong type" unless variable.type.equals types.number
-    Output :value
+    Output trans:value
       ->
-        error "Arrays have no representation" if value.type.isSpider?
-    Call :function :args
+        error "Arrays have no representation" if value.type.isArray?
+    Call trans:fun trans*:args
       ->
-        error "Trying to call what is not a function" unless function.isFunction?
-        error "Wrong number of arguments" if args.length isnt function.args.length
+        error "Trying to call what is not a function" unless fun.isFunction?
+        error "Wrong number of arguments" if args.length isnt fun.args.length
         for arg, i in args
-          error "Wrong type of an argument" unless arg.type.equals function.args[i].type
-    Return :value
+          error "Wrong type of an argument" unless arg.type.equals fun.args[i].type
+    Return trans:value
       ->
-        error "Arrays cannot be returned" if value.type.isSpider?
-    Input :name
+        error "Arrays cannot be returned" if value.type.isArray?
+    Input trans:variable
       ->
-        error "Arrays cannot be inputted" if value.type.isSpider?
-    If :cond [trans*] [trans*]
+        error "Arrays cannot be input" if variable.type.isArray?
+    If trans:cond [trans*] [trans*]
       ->
         error "Condition must be a boolean" unless cond.type.equals types.boolean
-    Until :cond [trans*]
+    Until trans:cond [trans*]
       ->
         error "Condition must be a boolean" unless cond.type.equals types.boolean
 
-    Spider :itemType
+    Spider trans:itemType
       ->
-        new Spider itemType
+        new ArrayIdentifier itemType
 
     Type :label
       ->
         new Type label
 
-    Logic :op :b1 :b2
+    Logic :op trans:b1 trans:b2
       ->
         error "Wrong type of operand, expected boolean" unless b1.type.equals types.boolean
         error "Wrong type of operand, expected boolean" unless b2.type.equals types.boolean
         new Value types.boolean
 
-    Compare :op :e1 :e2
+    Compare :op trans:e1 trans:e2
       ->
         error "Wrong type of operand, expected number or a letter" unless (e1.type.equalsAny types.number, types.letter)
         new Value types.boolean
 
-    Arithmetic :op :e1 :e2
+    Arithmetic :op trans:e1 trans:e2
       ->
         error "Wrong type of operand, expected number" unless e1.type.equals types.number
         error "Wrong type of operand, expected number" unless e2.type.equals types.number
         new Value types.number
 
-    Element :array :index
+    Dereference :name
       ->
-        if not array.type.isSpider
+        @lookup name
+
+    Element trans:array trans:index
+      ->
+        if not array.type.isArray
           error "Trying to access element of nonarray"
           type = types.error
         else
@@ -120,37 +122,29 @@ module.exports = (OMeta, OMLib) -> analyze: (ast) ->
 
     exitScope
       ->
+        console.log @currentScope
         @currentScope = @currentScope.outer
 
-    declare :identifier
-      ->
-        alreadyDeclared = @currentScope.declared identifier
-        if alreadyDeclared?
-          console.error "#{name} already declared in current scope"
-        else
-          @currentScope.add identifier
 
-  # Types
+  MAliceSemantics::declare = (identifier) ->
+    alreadyDeclared = @currentScope.declaredInCurrent identifier
+    if alreadyDeclared
+      console.error "#{identifier.name} already declared in current scope"
+    else
+      @currentScope.add identifier
+    console.log "#{identifier.name} declared"
+    identifier
 
-  types =
-    number: new Type "number"
-    letter: new Type "letter"
-    sentence: new Type "sentence"
-    boolean: new Type "boolean"
-    error: new ErrorType
+  MAliceSemantics::lookup = (name) ->
+    @lookupIn name, @currentScope
 
-    lookup: (name) ->
-      @lookupIn name, @currentScope
-
-    lookupIn: (name, scope) ->
-      reference = scope.declarations[name]
-      if reference?
-        return reference
-      if scope.outer
-        return @lookupIn name, scope.outer
-      else
-        console.error "#{name} undeclared"
-        return {type: types.error}
+  MAliceSemantics::lookupIn = (name, scope) ->
+    reference = scope.get name
+    if reference?
+      return reference
+    else
+      console.error "#{name} undeclared"
+      return new Reference name, types.error
 
   class Node
     constructor: (@type) ->
@@ -167,8 +161,11 @@ module.exports = (OMeta, OMLib) -> analyze: (ast) ->
     addAll: (identifiers) ->
       @add identifier for identifier in identifiers
 
-    declared: (identifier) ->
+    declaredInCurrent: (identifier) ->
       @declarations[identifier.name]?
+
+    get: (name) ->
+      @declarations[name] or @outer?.get name
 
   class Identifier # Could also hold a reference to the ASTnode that declares Identifier
 
@@ -190,14 +187,21 @@ module.exports = (OMeta, OMLib) -> analyze: (ast) ->
   class Reference extends Identifier
     constructor: (@name, @type) ->
 
-  class Function extends Identifier
+  class FunctionIdentifier extends Identifier
     constructor: (@name, @returnType, @args, @scope) ->
     isFunction: yes
 
-  class Spider extends Type
+  class ArrayIdentifier extends Type
     constructor: (@itemType) ->
-    isSpider: yes
+    isArray: yes
     equals: (t) ->
       @.itemType.equals t.itemType
 
-  MAliceSemantics.match ast, "trans", undefined, ometaError
+  types =
+    number: new Type "number"
+    letter: new Type "letter"
+    sentence: new Type "sentence"
+    boolean: new Type "boolean"
+    error: new ErrorType
+
+  MAliceSemantics.match ast, "trans", undefined, (m, i) -> error "ERROR in #{m}, #{i}"
