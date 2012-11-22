@@ -1,10 +1,15 @@
 dump = require './jsDump'
 
 module.exports = (OMeta, OMLib) -> analyze: (ast) ->
-  error = console.error
+
+  error = (err) ->
+    console.error "Semantic error: " + err
+
+  typeError (name, expected, actual) ->
+    error "Type mismatch for #{name}, expected type #{expected.toString()}, got type #{actual.toString()}"
 
   log = (xs...) ->
-    console.log x for x in xs
+    console.log dump.parse x for x in xs
 
   ometa MAliceSemantics
     trans = [:t apply(t):ans] -> ans
@@ -28,48 +33,53 @@ module.exports = (OMeta, OMLib) -> analyze: (ast) ->
 
     Array :name trans:size trans:itemType
       ->
-        error "Wrong type of size of array" unless size.type.equals types.number
+        typeError "array size", types.number, size.type unless size.type.equals types.number
         @declare new Reference name, new ArrayType itemType
 
     Skip
       ->
     Assignment trans:assignable trans:value
       ->
-        error "Wrong type in assignment" unless assignable.type.equals value.type
+        unless assignable.type.equals value.type
+          error "Wrong type in assignment, left hand side has type #{assignable.type.toString()}, right hand side has type #{value.type.toString()}"
 
     Decrement trans:variable
       ->
-        error "Wrong type" unless variable.type.equals types.number
+        typeError "decrement", types.number, variable.type unless variable.type.equals types.number
+
     Increment trans:variable
       ->
-        error "Wrong type" unless variable.type.equals types.number
+        typeError "increment", types.number, variable.type unless variable.type.equals types.number
+
     Output trans:value
       ->
-        error "Arrays have no representation" if value.type.isArray?
+        error "Array of #{value.type.itemType} has no printable representation" if value.type.isArray?
+
     Call trans:fun trans*:args
       ->
-        error "Trying to call what is not a function" unless fun.isFunction?
+        typeError "function call", types.function, fun.type unless fun.isFunction?
         if args.length isnt fun.args.length
-          error "Wrong number of arguments"
+          error "Function #{fun.name} expects #{fun.args.length} arguments, got #{args.length} arguments"
         else
           for arg, i in args
-            error "Wrong type of an argument" unless arg.type.equals fun.args[i].type
+            typeError "argument #{i+1}", fun.args[i].type, arg.type unless arg.type.equals fun.args[i].type
         new Value fun.returnType
 
     Return trans:value
       ->
-        error "Arrays cannot be returned" if value.type.isArray?
+        error "Array cannot be used as return type" if value.type.isArray?
+
     Input trans:variable
       ->
-        error "Arrays and functions cannot be input" if variable.isFunction? or variable.type.isArray?
+        typeError "input", [types.number, types.letter, types.sentence].join(' or '), variable.type if variable.isFunction? or variable.type.isArray?
 
     If trans:cond transMany transMany
       ->
-        error "Condition must be a boolean" unless cond.type.equals types.boolean
+       typeError "condition", types.boolean, cond.type unless cond.type.equals types.boolean
 
     Until trans:cond transMany
       ->
-        error "Condition must be a boolean" unless cond.type.equals types.boolean
+        typeError "loop condition", types.boolean, cond.type unless cond.type.equals types.boolean
 
     Spider trans:itemType
       ->
@@ -87,11 +97,9 @@ module.exports = (OMeta, OMLib) -> analyze: (ast) ->
 
     Compare :op trans:e1 trans:e2
       ->
-        console.log e1
-        console.log e2
         error "Wrong type of operand, expected number or a letter" unless (e1.type.equalsAny types.number, types.letter)
-        #error "Wrong type of operand, expected number or a letter" unless (e2.type.equalsAny types.number, types.letter)
-        #error "Wrong type of operand, operands must have the same type" unless (e1.type.equals e2.type)
+        error "Wrong type of operand, expected number or a letter" unless (e2.type.equalsAny types.number, types.letter)
+        error "Wrong type of operand, operands must have the same type" unless (e1.type.equals e2.type)
         new Value types.boolean
 
     Arithmetic :op trans:e1 trans?:e2
@@ -142,7 +150,7 @@ module.exports = (OMeta, OMLib) -> analyze: (ast) ->
       console.error "#{identifier.name} already declared in current scope"
     else
       @currentScope.add identifier
-    console.log "#{identifier.name} declared"
+    log "#{identifier.name} declared"
     identifier
 
   MAliceSemantics::lookup = (name) ->
@@ -187,12 +195,15 @@ module.exports = (OMeta, OMLib) -> analyze: (ast) ->
       ts.some (t) ->
         @equals t
       , this
-
+    toString: ->
+      @label
 
   class ErrorType extends Identifier
     isError: yes
     equals: (t) ->
       yes
+    toString: ->
+      "error"
 
   class Value extends Identifier
     constructor: (@type) ->
@@ -203,18 +214,22 @@ module.exports = (OMeta, OMLib) -> analyze: (ast) ->
   class FunctionIdentifier extends Identifier
     constructor: (@name, @returnType, @args, @scope) ->
     isFunction: yes
+    type: new Type "function"
 
   class ArrayType extends Type
     constructor: (@itemType) ->
     isArray: yes
     equals: (t) ->
       t.isArray and @itemType.equals t.itemType
+    toString: ->
+      "spider of #{@itemType}"
 
   types =
     number: new Type "number"
     letter: new Type "letter"
     sentence: new Type "sentence"
     boolean: new Type "boolean"
+    function: new Type "function"
     error: new ErrorType
 
   MAliceSemantics.match ast, "trans", undefined, (m, i) -> error "ERROR in #{m}, #{i}"
