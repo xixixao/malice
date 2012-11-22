@@ -3,10 +3,10 @@ dump = require './jsDump'
 module.exports = (OMeta, OMLib) -> analyze: (ast) ->
 
   error = (err) ->
-    console.error "Semantic error: " + err
+    console.error "Semantic error: \n  " + err
 
-  typeError (name, expected, actual) ->
-    error "Type mismatch for #{name}, expected type #{expected.toString()}, got type #{actual.toString()}"
+  typeError = (name, expected, actual) ->
+    error "Type mismatch for #{name}, expected '#{expected.toString()}', got '#{actual.toString()}'"
 
   log = (xs...) ->
     console.log dump.parse x for x in xs
@@ -75,7 +75,7 @@ module.exports = (OMeta, OMLib) -> analyze: (ast) ->
 
     If trans:cond transMany transMany
       ->
-       typeError "condition", types.boolean, cond.type unless cond.type.equals types.boolean
+        typeError "condition", types.boolean, cond.type unless cond.type.equals types.boolean
 
     Until trans:cond transMany
       ->
@@ -97,9 +97,9 @@ module.exports = (OMeta, OMLib) -> analyze: (ast) ->
 
     Compare :op trans:e1 trans:e2
       ->
-        error "Wrong type of operand, expected number or a letter" unless (e1.type.equalsAny types.number, types.letter)
-        error "Wrong type of operand, expected number or a letter" unless (e2.type.equalsAny types.number, types.letter)
-        error "Wrong type of operand, operands must have the same type" unless (e1.type.equals e2.type)
+        error "Wrong type of operand, expected number or a letter" unless e1.type.equalsAny types.number, types.letter
+        error "Wrong type of operand, expected number or a letter" unless e2.type.equalsAny types.number, types.letter
+        error "Wrong type of operand, operands must have the same type" unless e1.type.equals e2.type
         new Value types.boolean
 
     Arithmetic :op trans:e1 trans?:e2
@@ -150,7 +150,7 @@ module.exports = (OMeta, OMLib) -> analyze: (ast) ->
       console.error "#{identifier.name} already declared in current scope"
     else
       @currentScope.add identifier
-    log "#{identifier.name} declared"
+    #log "#{identifier.name} declared"
     identifier
 
   MAliceSemantics::lookup = (name) ->

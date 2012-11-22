@@ -25,5 +25,6 @@ makeparser (parser, semantics) ->
       syntaxTree = parser.parse sourceCode
       if typeof syntaxTree isnt "string"
         semantics.analyze syntaxTree
-      console.log dump syntaxTree
+      else
+        console.log syntaxTree
 

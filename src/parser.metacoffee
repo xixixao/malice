@@ -1,5 +1,5 @@
 module.exports = (OMeta, OMLib) -> parse: (input) ->
-  {ometaError, Set} = OMLib
+  {errorHandler, Set} = OMLib
 
   join = (xs) ->
     xs.join ''
@@ -103,4 +103,6 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
                                                                            MAlice.__super__.token.call(this, word)
     initialize      -> @keywords = getKeywords @usedTokens
 
-  MAlice.matchAll input, "program", undefined, ometaError
+  MAlice.matchAll input, "program", undefined, (m, i) ->
+      handled = errorHandler.handle m, i
+      "Syntactic error on line #{handled.lineNumber + 1}:\n#{errorHandler.bottomErrorArrow handled}"
