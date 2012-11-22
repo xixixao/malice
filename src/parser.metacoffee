@@ -17,24 +17,24 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     keywords.values()
 
   ometa MAlice
-    program         = declarations:ds spaces end                      -> concat ['Program'], ds
+    program         = declarations:ds spaces end                      -> ['Program', ds]
     function        = (valueFunction | voidFunction):d                -> concat ['Function'], d
     valueFunction   = "The room"          identifier:i args:as
                       "contained a" type:returnType
                       block:b                                         -> [i, returnType, as, b]
     voidFunction    = "The looking-glass" identifier:i args:as
                       block:b                                         -> [i, ['Type', 'void'], as, b]
-    args            = "(" listOf('argDeclaration', ','):as ")"        -> as
+    args            = "(" listOf('argDeclaration', ','):as ")"        -> concat ['Arguments'], as
     argDeclaration  = eType:t identifier:n                            -> ['Argument', n, t]
     block           = "opened"
-                      (declarations:ds statements:ss)? "closed"       -> concat ['Block'], ds, ss ? []
-    declarations    = declaration*
+                      (declarations:ds statements:ss)? "closed"       -> ['Block', ds, ss ? ['Skip']]
+    declarations    = declaration*:ds                                 -> concat ['Declarations'], ds
     declaration     = function
                     | variable:v terminator                           -> v
     variable        = identifier:i "was a" type:t
                       (("of" expression:e) | "too")?                  -> ['Variable', i, t, e ? ['Skip']]
                     | identifier:i "had" expression:n type:t          -> ['Array', i, n, t]
-    statements      = statement+
+    statements      = statement+:ss                                   -> concat ['Statements'], ss
     statement       = (assignment | saying | call):s terminator       -> s
                     | "."                                             -> ['Skip']
                     | finding | question | conditional | loop
@@ -52,12 +52,11 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     question        = "what was" assignable:x "?"                     -> ['Input', x]
     conditional     = ("perhaps" | "either") "(" expression:c ") so"
                         statements:ss
-                      orMaybe?:elif "because Alice was unsure which"  -> ['If', c, ss, [elif ? ['Skip']]]
+                      orMaybe?:elif "because Alice was unsure which"  -> ['If', c, ss, elif ? ['Skip']]
     orMaybe         = "or maybe (" expression:c ") so"
                         statements:ss
-                      orMaybe?:elif                                   -> ['If', c, ss, [elif ? ['Skip']]]
-                    | "or"
-                        statements:ss                                 -> ss
+                      orMaybe?:elif                                   -> ['If', c, ss, elif ? ['Skip']]
+                    | "or" statements
     loop            = "eventually (" expression:c ") because"
                         statements:ss "enough times"                  -> ['Until', c, ss]
     eType           = "spider" type:t                                 -> ['Spider', t]

@@ -13,19 +13,22 @@ module.exports = (OMeta, OMLib) -> analyze: (ast) ->
 
   ometa MAliceSemantics
     trans = [:t apply(t):ans] -> ans
-    transMany = :array -> @prepend(array); (@apply('trans') for el in array)
 
-    Program createScope:scope trans*:declarations
+    Program createScope:scope trans:declarations
 
-    Function :name trans:returnType transMany:args createScope:scope {scope.addAll args} trans:body exitScope
+    Function :name trans:returnType trans:args createScope:scope {scope.addAll args} trans:body exitScope
       ->
         @declare new FunctionIdentifier name, returnType, args
+
+    Arguments trans*
 
     Argument :name trans:type
       ->
         new Reference name, type
 
-    Block createScope:scope trans* exitScope
+    Block createScope:scope trans:declarations trans:statements exitScope
+
+    Declarations trans*
 
     Variable :name trans:type trans:value
       ->
@@ -73,13 +76,15 @@ module.exports = (OMeta, OMLib) -> analyze: (ast) ->
       ->
         typeError "input", [types.number, types.letter, types.sentence].join(' or '), variable.type if variable.isFunction? or variable.type.isArray?
 
-    If trans:cond transMany transMany
+    If trans:cond trans trans
       ->
         typeError "condition", types.boolean, cond.type unless cond.type.equals types.boolean
 
-    Until trans:cond transMany
+    Until trans:cond trans
       ->
         typeError "loop condition", types.boolean, cond.type unless cond.type.equals types.boolean
+
+    Statements trans*
 
     Spider trans:itemType
       ->
@@ -128,7 +133,7 @@ module.exports = (OMeta, OMLib) -> analyze: (ast) ->
 
     Letter :ch
       ->
-        new Value types.number
+        new Value types.letter
 
     Sentence :string
       ->
