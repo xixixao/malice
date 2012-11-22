@@ -16,7 +16,8 @@ module.exports = (OMeta, OMLib) -> analyze: (ast) ->
 
     Program createScope:scope trans:declarations
 
-    Function :name trans:returnType trans:args createScope:scope {scope.addAll args} trans:body exitScope
+    Function :name trans:returnType trans:args 
+             createScope:scope {scope.addAll args; scope.returns returnType} trans:body exitScope
       ->
         @declare new FunctionIdentifier name, returnType, args
 
@@ -70,7 +71,11 @@ module.exports = (OMeta, OMLib) -> analyze: (ast) ->
 
     Return trans:value
       ->
-        error "Array cannot be used as return type" if value.type.isArray?
+        currentReturnType = @currentScope.returns()
+        if currentReturnType.equals types.void
+          error "Return statement inside void function" 
+        else if not value.type.equals currentReturnType
+          typeError "return statement", currentReturnType, value.type
 
     Input trans:variable
       ->
@@ -176,13 +181,19 @@ module.exports = (OMeta, OMLib) -> analyze: (ast) ->
     constructor: (@outer, @declarations) ->
 
     toString: ->
-      "Scope#{dump.parse @declarations}"
+      "Scope#{dump.parse @declarations};#{@returnType}"
 
     add: (identifier) ->
       @declarations[identifier.name] = identifier
 
     addAll: (identifiers) ->
       @add identifier for identifier in identifiers
+
+    returns: (type) ->
+      if type?
+        @returnType = type
+      else
+        @returnType ? @outer.returns()
 
     declaredInCurrent: (identifier) ->
       @declarations[identifier.name]?
@@ -227,7 +238,7 @@ module.exports = (OMeta, OMLib) -> analyze: (ast) ->
     equals: (t) ->
       t.isArray and @itemType.equals t.itemType
     toString: ->
-      "spider of #{@itemType}"
+      "spider #{@itemType}"
 
   types =
     number: new Type "number"
@@ -235,6 +246,7 @@ module.exports = (OMeta, OMLib) -> analyze: (ast) ->
     sentence: new Type "sentence"
     boolean: new Type "boolean"
     function: new Type "function"
+    void: new Type "void"
     error: new ErrorType
 
   MAliceSemantics.match ast, "trans", undefined, (m, i) -> error "ERROR in #{m}, #{i}"

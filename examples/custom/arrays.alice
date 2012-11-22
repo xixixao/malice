@@ -1,16 +1,12 @@
 len was a number of 5.
 arr had len number.
 
+The room bla () contained a number
+opened
+  Alice found arr.
+closed
+
 The looking-glass hatta ()
 opened
-  i was a number of 0.
-  eventually (i == len) because
-    arr's i piece became i * i.
-    i ate.
-  enough times
-  i became 0.
-  eventually (i == len) because
-    arr's i piece spoke and "\n" spoke.
-    i ate.
-  enough times
+  
 closed
