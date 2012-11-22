@@ -46,16 +46,16 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
                                    )
     assignable      = arrayPiece | dereference
     saying          = expression:e ("said Alice" | "spoke")           -> ['Output', e]
-    call            = identifier:i "(" expressionList:es ")"          -> ['Call', i, es]
+    call            = dereference:i "(" expressionList:es ")"         -> concat ['Call', i], es
     expressionList  = listOf('expression', ',')
     finding         = "Alice found" expression:e "."                  -> ['Return', e]
     question        = "what was" assignable:x "?"                     -> ['Input', x]
     conditional     = ("perhaps" | "either") "(" expression:c ") so"
                         statements:ss
-                      orMaybe?:elif "because Alice was unsure which"  -> ['If', c, ss, elif]
+                      orMaybe?:elif "because Alice was unsure which"  -> ['If', c, ss, [elif ? ['Skip']]]
     orMaybe         = "or maybe (" expression:c ") so"
                         statements:ss
-                      orMaybe?:elif                                   -> ['If', c, ss, elif]
+                      orMaybe?:elif                                   -> ['If', c, ss, [elif ? ['Skip']]]
                     | "or"
                         statements:ss                                 -> ss
     loop            = "eventually (" expression:c ") because"

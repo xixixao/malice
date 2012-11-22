@@ -3,16 +3,20 @@ dump = require './jsDump'
 module.exports = (OMeta, OMLib) -> analyze: (ast) ->
   error = console.error
 
+  log = (xs...) ->
+    console.log x for x in xs
+
   ometa MAliceSemantics
     trans = [:t apply(t):ans] -> ans
+    transMany = :array -> @prepend(array); (@apply('trans') for el in array)
 
     Program createScope:scope trans*:declarations
 
-    Function :name trans:returnType [trans*]:args createScope:scope {scope.addAll args} trans:body exitScope
+    Function :name trans:returnType transMany:args createScope:scope {scope.addAll args} trans:body exitScope
       ->
         @declare new FunctionIdentifier name, returnType, args
 
-    Argument :name :type
+    Argument :name trans:type
       ->
         new Reference name, type
 
@@ -22,17 +26,15 @@ module.exports = (OMeta, OMLib) -> analyze: (ast) ->
       ->
         @declare new Reference name, type
 
-    Array :name trans:size trans:elementType
+    Array :name trans:size trans:itemType
       ->
-        sizeValidType = @check size, [types.number]
-        type = if sizeValidType then (new ArrayIdentifier elementType) else types.error
-        @declare new Reference name, type
+        error "Wrong type of size of array" unless size.type.equals types.number
+        @declare new Reference name, new ArrayType itemType
 
     Skip
       ->
     Assignment trans:assignable trans:value
       ->
-        console.log "assignable: " + dump.parse assignable
         error "Wrong type in assignment" unless assignable.type.equals value.type
 
     Decrement trans:variable
@@ -47,45 +49,55 @@ module.exports = (OMeta, OMLib) -> analyze: (ast) ->
     Call trans:fun trans*:args
       ->
         error "Trying to call what is not a function" unless fun.isFunction?
-        error "Wrong number of arguments" if args.length isnt fun.args.length
-        for arg, i in args
-          error "Wrong type of an argument" unless arg.type.equals fun.args[i].type
+        if args.length isnt fun.args.length
+          error "Wrong number of arguments"
+        else
+          for arg, i in args
+            error "Wrong type of an argument" unless arg.type.equals fun.args[i].type
+        new Value fun.returnType
+
     Return trans:value
       ->
         error "Arrays cannot be returned" if value.type.isArray?
     Input trans:variable
       ->
-        error "Arrays cannot be input" if variable.type.isArray?
-    If trans:cond [trans*] [trans*]
+        error "Arrays and functions cannot be input" if variable.isFunction? or variable.type.isArray?
+
+    If trans:cond transMany transMany
       ->
         error "Condition must be a boolean" unless cond.type.equals types.boolean
-    Until trans:cond [trans*]
+
+    Until trans:cond transMany
       ->
         error "Condition must be a boolean" unless cond.type.equals types.boolean
 
     Spider trans:itemType
       ->
-        new ArrayIdentifier itemType
+        new ArrayType itemType
 
     Type :label
       ->
         new Type label
 
-    Logic :op trans:b1 trans:b2
+    Logic :op trans:b1 trans?:b2
       ->
         error "Wrong type of operand, expected boolean" unless b1.type.equals types.boolean
-        error "Wrong type of operand, expected boolean" unless b2.type.equals types.boolean
+        error "Wrong type of operand, expected boolean" if b2? and not b2.type.equals types.boolean
         new Value types.boolean
 
     Compare :op trans:e1 trans:e2
       ->
+        console.log e1
+        console.log e2
         error "Wrong type of operand, expected number or a letter" unless (e1.type.equalsAny types.number, types.letter)
+        #error "Wrong type of operand, expected number or a letter" unless (e2.type.equalsAny types.number, types.letter)
+        #error "Wrong type of operand, operands must have the same type" unless (e1.type.equals e2.type)
         new Value types.boolean
 
-    Arithmetic :op trans:e1 trans:e2
+    Arithmetic :op trans:e1 trans?:e2
       ->
         error "Wrong type of operand, expected number" unless e1.type.equals types.number
-        error "Wrong type of operand, expected number" unless e2.type.equals types.number
+        error "Wrong type of operand, expected number" if e2? and not e2.type.equals types.number
         new Value types.number
 
     Dereference :name
@@ -94,7 +106,7 @@ module.exports = (OMeta, OMLib) -> analyze: (ast) ->
 
     Element trans:array trans:index
       ->
-        if not array.type.isArray
+        if not array.type.isArray?
           error "Trying to access element of nonarray"
           type = types.error
         else
@@ -110,7 +122,7 @@ module.exports = (OMeta, OMLib) -> analyze: (ast) ->
       ->
         new Value types.number
 
-    Sentece :string
+    Sentence :string
       ->
         new Value types.sentence
 
@@ -121,7 +133,6 @@ module.exports = (OMeta, OMLib) -> analyze: (ast) ->
 
     exitScope
       ->
-        console.log @currentScope
         @currentScope = @currentScope.outer
 
 
@@ -173,7 +184,10 @@ module.exports = (OMeta, OMLib) -> analyze: (ast) ->
     equals: (t) ->
       @label is t.label or t.isError
     equalsAny: (ts...) ->
-      ts.some (t) -> @equals t
+      ts.some (t) ->
+        @equals t
+      , this
+
 
   class ErrorType extends Identifier
     isError: yes
@@ -190,11 +204,11 @@ module.exports = (OMeta, OMLib) -> analyze: (ast) ->
     constructor: (@name, @returnType, @args, @scope) ->
     isFunction: yes
 
-  class ArrayIdentifier extends Type
+  class ArrayType extends Type
     constructor: (@itemType) ->
     isArray: yes
     equals: (t) ->
-      @.itemType.equals t.itemType
+      t.isArray and @itemType.equals t.itemType
 
   types =
     number: new Type "number"

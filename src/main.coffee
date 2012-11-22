@@ -21,7 +21,9 @@ makeparser (parser, semantics) ->
     catch e
       console.error "File '#{file}' couldn't be loaded!"
     if sourceCode
+      console.log "\nCompiling #{file}\n\n"
       syntaxTree = parser.parse sourceCode
-      semantics.analyze syntaxTree
+      if typeof syntaxTree isnt "string"
+        semantics.analyze syntaxTree
       console.log dump syntaxTree
 
