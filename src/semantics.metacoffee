@@ -26,9 +26,12 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
             error """The main function named 'hatta' cannot return a value.
                      Instead, 'hatta' was declared to return '#{hatta.returnType.toString()}'""", hatta.returnType.position()
 
-    Function :at :name trans:returnType trans:args
-             createScope:scope {scope.addAll args; scope.returns returnType} trans:body exitScope
-      ->  @declare new FunctionIdentifier name, returnType, args
+    Function :at :name trans:returnType trans:args  {
+        @declare new FunctionIdentifier name, returnType, args
+        scope = @createScope()
+        scope.addAll args
+        scope.returns returnType
+      } trans:body exitScope
 
     Arguments :at trans*
 
@@ -62,7 +65,7 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
       ->  error "#{value.type.toString()} has no printable representation" unless value.type.isDynamic
 
     Call :at trans:fun trans*:args
-      ->  typeError "function call", types.function, fun unless fun.isFunction?
+      ->  typeError "function call", types.function, fun unless fun.type.equals types.function
           if args.length isnt fun.args.length
             error "Function #{fun.name} expects #{fun.args.length} arguments, got #{args.length} arguments"
           else
@@ -158,7 +161,7 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
     if reference?
       return reference
     else
-      console.error "#{name} undeclared"
+      error "'#{name}' undeclared"
       return new Reference name, types.error
 
   class Scope
@@ -229,9 +232,7 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
     constructor: (@name, @type) ->
 
   class FunctionIdentifier extends Identifier
-    constructor: (@name, @returnType, @args, @scope) ->
-    isFunction: yes
-    isDynamic: false
+    constructor: (@name, @returnType, @args) ->
     type: new FunctionType
 
   types =
