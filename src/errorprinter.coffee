@@ -23,7 +23,7 @@ format = (data) ->
   return output + "\n"
 
 stripWhiteBegin = (input, pos, length) ->
-  while input[pos] == ' '
+  while input[pos].match /^\s/
     pos++
     length--
   [pos, length]
