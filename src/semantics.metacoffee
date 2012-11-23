@@ -126,16 +126,17 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
           new Value types.boolean
 
     Compare :pos :op trans:e1 trans:e2
-      ->  comparableTypes = [types.number, types.letter]
-          for operand in [e1, e2]
-            typeError "operand of '#{op}'", comparableTypes, operand unless operand.type.equalsAny comparableTypes
+      ->  for operand in [e1, e2]
+            typeError "operand of '#{op}'", arithmeticTypes, operand unless operand.type.equalsAny arithmeticTypes
           unless e1.type.equals e2.type
             error "Type clash for '#{op}', operands must match, got '#{e1.type}' and '#{e2.type}'", pos
           new Value types.boolean
 
     Arithmetic :pos :op trans:e1 trans?:e2
       ->  for operand in [e1, e2] when operand?
-            typeError "operand of #{op}", types.number, operand unless operand.type.equals types.number
+            typeError "operand of '#{op}'", arithmeticTypes, operand unless operand.type.equalsAny arithmeticTypes
+          if e2? and not e1.type.equals e2.type
+            error "Type clash for '#{op}', operands must match, got '#{e1.type}' and '#{e2.type}'", pos
           new Value types.number
 
     Dereference :pos :name
@@ -274,5 +275,6 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
     error: new ErrorType
 
   dynamicTypes = [types.number, types.letter, types.sentence]
+  arithmeticTypes = [types.number, types.letter]
 
   MAliceSemantics.match ast, "trans", undefined, (m, i) -> console.error "ERROR while traversing ast in semantic analyzer in #{m}, #{i}"
