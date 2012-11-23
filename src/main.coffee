@@ -4,7 +4,8 @@ fs         = require 'fs'
 program    = require 'commander'
 makeparser = require './makeparser'
 dumper     = require './jsDump'
-clc        = require('cli-color'); 
+clc        = require 'cli-color'
+require './colorConsole'
 log = (data) -> console.log dumper.parse data
 
 # commander.js settings
@@ -27,5 +28,5 @@ makeparser (parser, semantics) ->
       if typeof syntaxTree isnt "string"
         semantics.analyze sourceCode, syntaxTree
       else
-        console.log syntaxTree
+        console.error syntaxTree
 

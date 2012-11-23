@@ -1,29 +1,38 @@
 clc = require('cli-color');
 
-formatOmetaError =  (label, interpreter, position) ->
-  format label: label, input: interpreter.input.lst, position: position
+formatOmetaError =  (label, interpreter, position, message) ->
+  format 
+    label: label
+    input: interpreter.input.lst
+    position: position
+    message: message
 
 format = (data) ->
-  {label, input, position, message} = data
+  {label, input, position, message, detail} = data
   output = clc.redBright label
   if position?
-    if position.length? # is an Array
-      [position, length] = position
-      length -= position
-      [position, length] = stripWhiteBegin input, position, length
     computed = handle input, position
-    [inputLine, arrow] = bottomErrorArrow computed, length ? 1
+    [inputLine, arrow] = bottomErrorArrow '^', computed, computed.length
     output += " on line #{computed.lineNumber + 1}"
   output += clc.redBright ":\n"
   if position?
     output += "  #{inputLine}\n"
     output += "  #{clc.redBright arrow}\n"
   if message?
-    output += "  #{message}\n"
+    output += "#{message}"
+  if detail?
+    computed = handle input, detail
+    [inputLine, arrow] = bottomErrorArrow '-', computed, computed.length
+    output += " on line #{computed.lineNumber + 1}" + clc.redBright ":\n"
+    output += "  #{inputLine}\n"
+    output += "  #{clc.blue arrow}\n"
+  else
+    output += "\n"
   return output + "\n"
 
+
 stripWhiteBegin = (input, pos, length) ->
-  while input[pos].match /^\s/
+  while input[pos].match /\s/
     pos++
     length--
   [pos, length]
@@ -37,6 +46,10 @@ positionAt = (string, n, length) ->
 
 # +1 for the erased newline character
 handle = (input, position) ->
+  if Array.isArray position
+    [position, length] = position
+    length -= position
+    [position, length] = stripWhiteBegin input, position, length
   lines = input.split('\n')
   currentPosition = position + 1
   for line, i in lines
@@ -46,15 +59,17 @@ handle = (input, position) ->
       break
 
   position: currentPosition
+  length: length ? 1
   lineNumber: i
   line: line
 
-bottomErrorArrow = (handledError, length) ->
+bottomErrorArrow = (pointer, handledError, length) ->
   pos = handledError.position
   line = handledError.line
   lineLimit = 80
   offset = Math.max 0, pos - lineLimit
-  [line[offset..offset + lineLimit], positionAt "^", pos - offset, length]
+  arrow = positionAt pointer, pos - offset, Math.min length, line.length - 1
+  [line[offset..offset + lineLimit], arrow]
 
 module.exports =
   formatOmetaError: formatOmetaError

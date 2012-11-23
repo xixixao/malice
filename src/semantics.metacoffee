@@ -4,15 +4,30 @@ errorHandler = require('./errorprinter');
 
 module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
 
-  error = (message, where) ->
+  locate = (where) ->
+    where?.position?() ? where
+
+  error = (message, where, detail) ->
     console.error errorHandler.format
       label: "Semantic error"
       input: source
-      position: where?.position?() ? where
+      position: locate where
       message: message
+      detail: locate detail
 
-  typeError = (name, expected, actual) ->
-    error "Type mismatch for #{name}, expected '#{expected}', got '#{actual.type}'", actual
+  typeError = (name, expected, actual, expectedWhere) ->
+    if not Array.isArray expected
+      expected = [expected]
+    expectedLabels = ("'#{type}'" for type in expected).join ' or '
+    if not expectedWhere?
+      error "Type clash for #{name}, expected #{expectedLabels}, got '#{actual.type}'", actual
+    else
+      error "Type clash for #{name}, got '#{actual.type}', expected #{expectedLabels} as declared", actual, expectedWhere
+
+  positionOf = (values) ->
+    [start, _] = values[0].position()
+    [_, end] = values[-1..][0].position()
+    [start, end]
 
   log = (xs...) ->
     console.log dump.parse x for x in xs
@@ -25,17 +40,19 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
           if not hatta?
             error "The main function named 'hatta' was not declared."
           else if not hatta.type.equals types.function
-            error "The main function named 'hatta' was not declared. Instead, 'hatta' was declared as '#{hatta.type}'"
+            error "The main function named 'hatta' was not declared. Instead, 'hatta' was declared as '#{hatta.type}'", hatta
           else if not hatta.returnType.equals types.void
             error "The main function named 'hatta' cannot return a value. " +
                   "Instead, 'hatta' was declared to return '#{hatta.returnType}'", hatta.returnType
 
     Function :pos :name trans:returnType trans:args  {
-        @declare new FunctionIdentifier name, returnType, args
+        identifier = @declare (new FunctionIdentifier name, returnType, args), pos
         scope = @createScope()
         scope.addAll args
         scope.returns returnType
-      } trans:body exitScope
+        return identifier
+      }:i trans:body exitScope 
+      -> i
 
     Arguments :pos trans*
 
@@ -47,17 +64,19 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
     Declarations :pos trans*
 
     Variable :pos :name trans:type trans:value
-      ->  @declare new Reference name, type
+      ->  @declare (new Reference name, type), pos
 
     Array :pos :name trans:size trans:itemType
       ->  typeError "specifying array size", types.number, size unless size.type.equals types.number
-          @declare new Reference name, new ArrayType itemType
+          @declare (new Reference name, new ArrayType itemType), pos
 
     Skip
       ->
     Assignment :pos trans:assignable trans:value
-      ->  unless assignable.type.equals value.type
-            error "Type mismatch in assignment, reference is a '#{assignable.type}', value is a '#{value.type}'", value
+      ->  if not assignable.type.isDynamic
+            error "Reference of type '#{assignable.type}' cannot be assigned to", assignable
+          else if not assignable.type.equals value.type
+            error "Type clash in assignment, reference is a '#{assignable.type}', value is a '#{value.type}'", value
 
     Decrement :pos trans:variable
       ->  typeError "decrement", types.number, variable unless variable.type.equals types.number
@@ -66,15 +85,15 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
       ->  typeError "increment", types.number, variable unless variable.type.equals types.number
 
     Output :pos trans:value
-      ->  error "#{value.type} has no printable representation" unless value.type.isDynamic
+      ->  error "'#{value.type}' has no printable representation", value unless value.type.isDynamic
 
     Call :pos trans:fun trans*:args
       ->  typeError "function call", types.function, fun unless fun.type.equals types.function
           if args.length isnt fun.args.length
-            error "Function #{fun.name} expects #{fun.args.length} arguments, got #{args.length} arguments"
+            error "Function #{fun.name} expects #{fun.args.length} arguments, got #{args.length} arguments", positionOf args
           else
             for arg, i in args
-              typeError "argument #{i+1}", fun.args[i].type, arg unless arg.type.equals fun.args[i].type
+              typeError "argument #{i+1}", fun.args[i].type, arg, fun.args[i].type unless arg.type.equals fun.args[i].type
           new Value fun.returnType
 
     Return :pos trans:value
@@ -85,7 +104,7 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
             typeError "return statement", currentReturnType, value
 
     Input :pos trans:variable
-      ->  typeError "input statement", dynamicTypes.join(' or '), variable unless variable.type.isDynamic
+      ->  typeError "input statement", dynamicTypes, variable unless variable.type.isDynamic
 
     If :pos trans:cond trans trans
       ->  typeError "condition", types.boolean, cond unless cond.type.equals types.boolean
@@ -108,21 +127,21 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
 
     Compare :pos :op trans:e1 trans:e2
       ->  comparableTypes = [types.number, types.letter]
-          comparableTypesNames = comparableTypes.join " or "
           for operand in [e1, e2]
-            typeError "operand of '#{op}'", comparableTypesNames, operand unless operand.type.equalsAny comparableTypes
-          error "Type mismatch for '#{op}', operands must match, got '#{e1.type}' and '#{e2.type}'" unless e1.type.equals e2.type
+            typeError "operand of '#{op}'", comparableTypes, operand unless operand.type.equalsAny comparableTypes
+          unless e1.type.equals e2.type
+            error "Type clash for '#{op}', operands must match, got '#{e1.type}' and '#{e2.type}'", pos
           new Value types.boolean
 
     Arithmetic :pos :op trans:e1 trans?:e2
       ->  for operand in [e1, e2] when operand?
-            typeError "operand of #{op}", types.number, operand unless e1.type.equals types.number
+            typeError "operand of #{op}", types.number, operand unless operand.type.equals types.number
           new Value types.number
 
     Dereference :pos :name
       ->  reference = @currentScope.get name
           if reference?
-            reference
+            Reference.from reference
           else
             error "'#{name}' is undeclared", pos
             new Reference name, types.error
@@ -153,10 +172,10 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
     exitScope
       ->  @currentScope = @currentScope.outer
 
-  MAliceSemantics::declare = (identifier) ->
+  MAliceSemantics::declare = (identifier, pos) ->
     alreadyDeclared = @currentScope.declaredInCurrent identifier
     if alreadyDeclared?
-      error "'#{identifier.name}' already declared in current scope", alreadyDeclared
+      error "'#{identifier.name}' already declared", pos, alreadyDeclared
     else
       @currentScope.add identifier
     #log "#{identifier.name} declared"
@@ -197,6 +216,7 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
 
   class Type extends Identifier
     constructor: (@label) ->
+      @isDynamic = true
     equals: (t) ->
       @label is t.label or t.isError
     equalsAny: (ts) ->
@@ -205,23 +225,24 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
       , this
     toString: ->
       @label
-    isDynamic: true
 
   class FunctionType extends Type
-    label: "function"
-    isDynamic: false
+    constructor: ->
+      super "function"
+      @isDynamic = no
 
   class ArrayType extends Type
     constructor: (@itemType) ->
-    isArray: yes
-    isDynamic: false
+      @isArray = yes
+      @isDynamic = no
     equals: (t) ->
       t.isArray and @itemType.equals t.itemType
     toString: ->
       "spider #{@itemType}"
 
   class ErrorType extends Identifier
-    isError: yes
+    constructor: ->
+      @isError = yes
     equals: (t) ->
       yes
     toString: ->
@@ -232,10 +253,16 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
 
   class Reference extends Identifier
     constructor: (@name, @type) ->
+    @from: (identifier) ->
+      copy = new Reference
+      for own key, value of identifier
+        copy[key] = value
+      copy.declaredAt = identifier.position()
+      copy
 
   class FunctionIdentifier extends Identifier
     constructor: (@name, @returnType, @args) ->
-    type: new FunctionType
+      @type = new FunctionType
 
   types =
     number: new Type "number"
