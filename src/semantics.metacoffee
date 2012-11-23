@@ -50,7 +50,7 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
       ->  @declare new Reference name, type
 
     Array :pos :name trans:size trans:itemType
-      ->  typeError "array size", types.number, size unless size.type.equals types.number
+      ->  typeError "specifying array size", types.number, size unless size.type.equals types.number
           @declare new Reference name, new ArrayType itemType
 
     Skip
@@ -103,7 +103,7 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
 
     Logic :pos :op trans:b1 trans?:b2
       ->  for operand in [b1, b2] when operand?
-            typeError "operand of #{op}", types.boolean, b1 unless b1.type.equals types.boolean
+            typeError "operand of #{op}", types.boolean, operand unless operand.type.equals types.boolean
           new Value types.boolean
 
     Compare :pos :op trans:e1 trans:e2
