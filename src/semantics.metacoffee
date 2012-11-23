@@ -16,155 +16,128 @@ module.exports = (OMeta, OMLib) -> analyze: (ast) ->
     trans = <[:t apply(t):ans]>:node -> ans?.node = node; ans
 
     Program createScope:scope trans:declarations
-      ->
-        hatta = scope.get 'hatta'
-        if not hatta? 
-          error "The main function named 'hatta' was not declared."
-        else if not hatta.type.equals types.function
-          error "The main function named 'hatta' was not declared. Instead, 'hatta' was declared as '#{hatta.type.toString()}'"
-        else if not hatta.returnType.equals types.void
-          error """The main function named 'hatta' cannot return a value.
-                   Instead, 'hatta' was declared to return '#{hatta.returnType.toString()}'""", hatta.at
+      ->  hatta = scope.get 'hatta'
+          if not hatta?
+            error "The main function named 'hatta' was not declared."
+          else if not hatta.type.equals types.function
+            error "The main function named 'hatta' was not declared. Instead, 'hatta' was declared as '#{hatta.type.toString()}'"
+          else if not hatta.returnType.equals types.void
+            error """The main function named 'hatta' cannot return a value.
+                     Instead, 'hatta' was declared to return '#{hatta.returnType.toString()}'""", hatta.at
 
-
-    Function :name trans:returnType trans:args 
+    Function :name trans:returnType trans:args
              createScope:scope {scope.addAll args; scope.returns returnType} trans:body exitScope
-      ->
-        @declare new FunctionIdentifier name, returnType, args
+      ->  @declare new FunctionIdentifier name, returnType, args
 
     Arguments trans*
 
     Argument :name trans:type
-      ->
-        new Reference name, type
+      ->  new Reference name, type
 
     Block createScope:scope trans:declarations trans:statements exitScope
 
     Declarations trans*
 
     Variable :name trans:type trans:value
-      ->
-        @declare new Reference name, type
+      ->  @declare new Reference name, type
 
     Array :name trans:size trans:itemType
-      ->
-        typeError "array size", types.number, size.type unless size.type.equals types.number
-        @declare new Reference name, new ArrayType itemType
+      ->  typeError "array size", types.number, size.type unless size.type.equals types.number
+          @declare new Reference name, new ArrayType itemType
 
     Skip
       ->
     Assignment trans:assignable trans:value
-      ->
-        unless assignable.type.equals value.type
-          error "Type mismatch in assignment, reference is a '#{assignable.type.toString()}', value is a '#{value.type.toString()}'"
+      ->  unless assignable.type.equals value.type
+            error "Type mismatch in assignment, reference is a '#{assignable.type.toString()}', value is a '#{value.type.toString()}'"
 
     Decrement trans:variable
-      ->
-        typeError "decrement", types.number, variable.type unless variable.type.equals types.number
+      ->  typeError "decrement", types.number, variable.type unless variable.type.equals types.number
 
     Increment trans:variable
-      ->
-        typeError "increment", types.number, variable.type unless variable.type.equals types.number
+      ->  typeError "increment", types.number, variable.type unless variable.type.equals types.number
 
     Output trans:value
-      ->
-        error "#{value.type.toString()} has no printable representation" unless value.type.isDynamic
+      ->  error "#{value.type.toString()} has no printable representation" unless value.type.isDynamic
 
     Call trans:fun trans*:args
-      ->
-        typeError "function call", types.function, fun.type unless fun.isFunction?
-        if args.length isnt fun.args.length
-          error "Function #{fun.name} expects #{fun.args.length} arguments, got #{args.length} arguments"
-        else
-          for arg, i in args
-            typeError "argument #{i+1}", fun.args[i].type, arg.type unless arg.type.equals fun.args[i].type
-        new Value fun.returnType
+      ->  typeError "function call", types.function, fun.type unless fun.isFunction?
+          if args.length isnt fun.args.length
+            error "Function #{fun.name} expects #{fun.args.length} arguments, got #{args.length} arguments"
+          else
+            for arg, i in args
+              typeError "argument #{i+1}", fun.args[i].type, arg.type unless arg.type.equals fun.args[i].type
+          new Value fun.returnType
 
     Return trans:value
-      ->
-        currentReturnType = @currentScope.returns()
-        if currentReturnType.equals types.void
-          error "Return statement inside void function" 
-        else if not value.type.equals currentReturnType
-          typeError "return statement", currentReturnType, value.type
+      ->  currentReturnType = @currentScope.returns()
+          if currentReturnType.equals types.void
+            error "Return statement inside void function"
+          else if not value.type.equals currentReturnType
+            typeError "return statement", currentReturnType, value.type
 
     Input trans:variable
-      ->
-        typeError "input statement", dynamicTypes.join(' or '), variable.type unless variable.type.isDynamic
+      ->  typeError "input statement", dynamicTypes.join(' or '), variable.type unless variable.type.isDynamic
 
     If trans:cond trans trans
-      ->
-        typeError "condition", types.boolean, cond.type unless cond.type.equals types.boolean
+      ->  typeError "condition", types.boolean, cond.type unless cond.type.equals types.boolean
 
     Until trans:cond trans
-      ->
-        typeError "loop condition", types.boolean, cond.type unless cond.type.equals types.boolean
+      ->  typeError "loop condition", types.boolean, cond.type unless cond.type.equals types.boolean
 
     Statements trans*
 
     Spider trans:itemType
-      ->
-        new ArrayType itemType
+      ->  new ArrayType itemType
 
     Type :label
-      ->
-        new Type label
+      ->  new Type label
 
     Logic :op trans:b1 trans?:b2
-      ->
-        for operand in [b1, b2] when operand?
-          typeError "operand of #{op}", types.boolean, b1.type unless b1.type.equals types.boolean
-        new Value types.boolean
+      ->  for operand in [b1, b2] when operand?
+            typeError "operand of #{op}", types.boolean, b1.type unless b1.type.equals types.boolean
+          new Value types.boolean
 
     Compare :op trans:e1 trans:e2
-      ->
-        comparableTypes = [types.number, types.letter]
-        comparableTypesNames = comparableTypes.join " or "
-        for operand in [e1, e2]
-          typeError "operand of '#{op}'", comparableTypesNames, operand.type unless operand.type.equalsAny comparableTypes
-        error "Type mismatch for '#{op}', operands must match, got '#{e1.type}' and '#{e2.type}'" unless e1.type.equals e2.type
-        new Value types.boolean
+      ->  comparableTypes = [types.number, types.letter]
+          comparableTypesNames = comparableTypes.join " or "
+          for operand in [e1, e2]
+            typeError "operand of '#{op}'", comparableTypesNames, operand.type unless operand.type.equalsAny comparableTypes
+          error "Type mismatch for '#{op}', operands must match, got '#{e1.type}' and '#{e2.type}'" unless e1.type.equals e2.type
+          new Value types.boolean
 
     Arithmetic :op trans:e1 trans?:e2
-      ->
-        for operand in [e1, e2] when operand?
-          typeError "operand of #{op}", types.number, operand.type unless e1.type.equals types.number
-        new Value types.number
+      ->  for operand in [e1, e2] when operand?
+            typeError "operand of #{op}", types.number, operand.type unless e1.type.equals types.number
+          new Value types.number
 
     Dereference :name
-      ->
-        @lookup name
+      ->  @lookup name
 
     Element trans:array trans:index
-      ->
-        if not array.type.isArray?
-          typeError "array access", new ArrayType "<?>", array.type
-          type = types.error
-        else
-          type = array.type.itemType
-        typeError "array index", types.number, index.type unless index.type.equals types.number
-        new Value type
+      ->  if not array.type.isArray?
+            typeError "array access", new ArrayType "<?>", array.type
+            type = types.error
+          else
+            type = array.type.itemType
+          typeError "array index", types.number, index.type unless index.type.equals types.number
+          new Value type
 
     Number :n
-      ->
-        new Value types.number
+      ->  new Value types.number
 
     Letter :ch
-      ->
-        new Value types.letter
+      ->  new Value types.letter
 
     Sentence :string
-      ->
-        new Value types.sentence
+      ->  new Value types.sentence
 
     createScope
-      ->
-        outerScope = @currentScope
-        @currentScope = new Scope outerScope, {}
+      ->  outerScope = @currentScope
+          @currentScope = new Scope outerScope, {}
 
     exitScope
-      ->
-        @currentScope = @currentScope.outer
+      ->  @currentScope = @currentScope.outer
 
 
   MAliceSemantics::declare = (identifier) ->
@@ -211,7 +184,7 @@ module.exports = (OMeta, OMLib) -> analyze: (ast) ->
     get: (name) ->
       @declarations[name] or @outer?.get name
 
-  class Identifier # Could also hold a reference to the ASTnode that declares Identifier
+  class Identifier # Also holds a reference to the ASTnode that declares Identifier
 
   class Type extends Identifier
     constructor: (@label) ->
@@ -227,7 +200,7 @@ module.exports = (OMeta, OMLib) -> analyze: (ast) ->
 
   class FunctionType extends Type
     label: "function"
-    isDynamic: false 
+    isDynamic: false
 
   class ArrayType extends Type
     constructor: (@itemType) ->
@@ -268,4 +241,4 @@ module.exports = (OMeta, OMLib) -> analyze: (ast) ->
 
   dynamicTypes = [types.number, types.letter, types.sentence]
 
-  MAliceSemantics.match ast, "trans", undefined, (m, i) -> error "ERROR in #{m}, #{i}"
+  MAliceSemantics.match ast, "trans", undefined, (m, i) -> error "ERROR while traversing ast in semantic analyzer in #{m}, #{i}"

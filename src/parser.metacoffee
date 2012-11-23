@@ -1,7 +1,8 @@
 clc = require('cli-color');
+errorHandler = require('./errorprinter');
 
 module.exports = (OMeta, OMLib) -> parse: (input) ->
-  {errorHandler, Set} = OMLib
+  {Set} = OMLib
 
   join = (xs) ->
     xs.join ''
@@ -104,6 +105,7 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
                                                                            MAlice.__super__.token.call(this, word)
     initialize      -> @keywords = getKeywords @usedTokens
 
-  MAlice.matchAll input, "program", undefined, (m, i) ->
-      handled = errorHandler.handle m, i
-      "#{clc.redBright "Syntactic error on line #{handled.lineNumber + 1}"}:\n#{errorHandler.bottomErrorArrow handled}"
+  formatError = (interpreter, position, message) ->
+    errorHandler.format "Syntactic error", interpreter, position, message
+
+  MAlice.matchAll input, "program", undefined, formatError
