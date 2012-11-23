@@ -20,84 +20,84 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     keywords.values()
 
   ometa MAlice
-    program         = declarations:ds spaces end                      -> ['Program', ds]
-    function        = (valueFunction | voidFunction):d                -> concat ['Function'], d
+    program         = declarations:ds spaces end                      -> ['Program', at, ds]
+    function        = (valueFunction | voidFunction):d                -> concat ['Function', at], d
     valueFunction   = "The room"          identifier:i args:as
                       "contained a" type:returnType
                       block:b                                         -> [i, returnType, as, b]
     voidFunction    = "The looking-glass" identifier:i args:as
-                      block:b                                         -> [i, ['Type', 'void'], as, b]
-    args            = "(" listOf('argDeclaration', ','):as ")"        -> concat ['Arguments'], as
-    argDeclaration  = eType:t identifier:n                            -> ['Argument', n, t]
+                      block:b                                         -> [i, ['Type', at, 'void'], as, b]
+    args            = "(" listOf('argDeclaration', ','):as ")"        -> concat ['Arguments', at], as
+    argDeclaration  = eType:t identifier:n                            -> ['Argument', at, n, t]
     block           = "opened"
-                      (declarations:ds statements:ss)? "closed"       -> ['Block', ds, ss ? ['Skip']]
-    declarations    = declaration*:ds                                 -> concat ['Declarations'], ds
+                      (declarations:ds statements:ss)? "closed"       -> ['Block', at, ds, ss ? ['Skip']]
+    declarations    = declaration*:ds                                 -> concat ['Declarations', at], ds
     declaration     = function
                     | variable:v terminator                           -> v
     variable        = identifier:i "was a" type:t
-                      (("of" expression:e) | "too")?                  -> ['Variable', i, t, e ? ['Skip']]
-                    | identifier:i "had" expression:n type:t          -> ['Array', i, n, t]
-    statements      = statement+:ss                                   -> concat ['Statements'], ss
+                      (("of" expression:e) | "too")?                  -> ['Variable', at, i, t, e ? ['Skip']]
+                    | identifier:i "had" expression:n type:t          -> ['Array', at, i, n, t]
+    statements      = statement+:ss                                   -> concat ['Statements', at], ss
     statement       = (assignment | saying | call):s terminator       -> s
                     | "."                                             -> ['Skip']
                     | finding | question | conditional | loop
                     | block
     terminator      =  ("." | "," | "and" | "but" | "then")
-    assignment      = assignable:x ("became" expression:e             -> ['Assignment', x, e]
-                                   | "drank"                          -> ['Decrement', x]
-                                   | "ate"                            -> ['Increment', x]
+    assignment      = assignable:x ("became" expression:e             -> ['Assignment', at, x, e]
+                                   | "drank"                          -> ['Decrement', at, x]
+                                   | "ate"                            -> ['Increment', at, x]
                                    )
     assignable      = arrayPiece | dereference
-    saying          = expression:e ("said Alice" | "spoke")           -> ['Output', e]
-    call            = dereference:i "(" expressionList:es ")"         -> concat ['Call', i], es
+    saying          = expression:e ("said Alice" | "spoke")           -> ['Output', at, e]
+    call            = dereference:i "(" expressionList:es ")"         -> concat ['Call', at, i], es
     expressionList  = listOf('expression', ',')
-    finding         = "Alice found" expression:e "."                  -> ['Return', e]
-    question        = "what was" assignable:x "?"                     -> ['Input', x]
+    finding         = "Alice found" expression:e "."                  -> ['Return', at, e]
+    question        = "what was" assignable:x "?"                     -> ['Input', at, x]
     conditional     = ("perhaps" | "either") "(" expression:c ") so"
                         statements:ss
-                      orMaybe?:elif "because Alice was unsure which"  -> ['If', c, ss, elif ? ['Skip']]
+                      orMaybe?:elif "because Alice was unsure which"  -> ['If', at, c, ss, elif ? ['Skip']]
     orMaybe         = "or maybe (" expression:c ") so"
                         statements:ss
-                      orMaybe?:elif                                   -> ['If', c, ss, elif ? ['Skip']]
+                      orMaybe?:elif                                   -> ['If', at, c, ss, elif ? ['Skip']]
                     | "or" statements
     loop            = "eventually (" expression:c ") because"
-                        statements:ss "enough times"                  -> ['Until', c, ss]
-    eType           = "spider" type:t                                 -> ['Spider', t]
+                        statements:ss "enough times"                  -> ['Until', at, c, ss]
+    eType           = "spider" type:t                                 -> ['Spider', at, t]
                     | type
-    type            = ("number" | "letter" | "sentence"):t            -> ['Type', t]
+    type            = ("number" | "letter" | "sentence"):t            -> ['Type', at, t]
     expression      = or
-    or              = or:b1  "||" and:b2                              -> ['Logic', '||', b1, b2]
+    or              = or:b1  "||" and:b2                              -> ['Logic', at, '||', b1, b2]
                     | and
-    and             = and:b1 "&&" negation:b2                         -> ['Logic', '&&', b1, b2]
+    and             = and:b1 "&&" negation:b2                         -> ['Logic', at, '&&', b1, b2]
                     | negation
-    negation        = "!" negation:b                                  -> ['Logic', '!', b]
+    negation        = "!" negation:b                                  -> ['Logic', at, '!', b]
                     | comparison
-    comparison      = comparison:e1 comparisonOp:op expression:e2     -> ['Compare', op, e1, e2]
+    comparison      = comparison:e1 comparisonOp:op expression:e2     -> ['Compare', at, op, e1, e2]
                     | bitwiseOr
     comparisonOp    = "==" | ">=" | "<=" | "!=" | "<" | ">"
-    bitwiseOr       = bitwiseOr:e1 "|" bitwiseXOr:e2                  -> ['Arithmetic', '|', e1, e2]
+    bitwiseOr       = bitwiseOr:e1 "|" bitwiseXOr:e2                  -> ['Arithmetic', at, '|', e1, e2]
                     | bitwiseXOr
-    bitwiseXOr      = bitwiseXOr:e1 "^" bitwiseAnd:e2                 -> ['Arithmetic', '^', e1, e2]
+    bitwiseXOr      = bitwiseXOr:e1 "^" bitwiseAnd:e2                 -> ['Arithmetic', at, '^', e1, e2]
                     | bitwiseAnd
-    bitwiseAnd      = bitwiseAnd:e1 "&" additive:e2                   -> ['Arithmetic', '&', e1, e2]
+    bitwiseAnd      = bitwiseAnd:e1 "&" additive:e2                   -> ['Arithmetic', at, '&', e1, e2]
                     | additive
-    additive        = additive:e1 additiveOp:op multiplicative:e2     -> ['Arithmetic', op, e1, e2]
+    additive        = additive:e1 additiveOp:op multiplicative:e2     -> ['Arithmetic', at, op, e1, e2]
                     | multiplicative
     additiveOp      = "+" | "-"
-    multiplicative  = multiplicative:e1 multiplicativeOp:op unary:e2  -> ['Arithmetic', op, e1, e2]
+    multiplicative  = multiplicative:e1 multiplicativeOp:op unary:e2  -> ['Arithmetic', at, op, e1, e2]
                     | unary
     multiplicativeOp= "*" | "/" | "%"
-    unary           = unaryOp:op unary:e                              -> ['Arithmetic', op, e]
+    unary           = unaryOp:op unary:e                              -> ['Arithmetic', at, op, e]
                     | value
     unaryOp         = "~" | "-" | "+"
     value           = number | character | string
                     | arrayPiece | call | dereference
                     | "(" expression:e ")"                            -> e
-    arrayPiece      = dereference:i "'s" expression:e "piece"         -> ['Element', i, e]
-    dereference     = identifier:i                                    -> ['Dereference', i]
-    number          = spaces digit+:ds                                -> ['Number', join ds]
-    character       = spaces '\'' letter:c '\''                       -> ['Letter', c]
-    string          = spaces '"' (!'"' anything)*:xs '"'              -> ['Sentence', join xs]
+    arrayPiece      = dereference:i "'s" expression:e "piece"         -> ['Element', at, i, e]
+    dereference     = identifier:i                                    -> ['Dereference', at, i]
+    number          = spaces digit+:ds                                -> ['Number', at, join ds]
+    character       = spaces '\'' letter:c '\''                       -> ['Letter', at, c]
+    string          = spaces '"' (!'"' anything)*:xs '"'              -> ['Sentence', at, join xs]
     identifier      = spaces (letter:x (letter | '_' | digit)*:xs     -> x + join xs):i
                       !{i in @keywords}                               -> i
     token :s        = spaced(s):ts (!letter(s[-1..]) | !letter)       -> ts.join ' '
@@ -105,7 +105,7 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
                                                                            MAlice.__super__.token.call(this, word)
     initialize      -> @keywords = getKeywords @usedTokens
 
-  formatError = (interpreter, position, message) ->
-    errorHandler.format "Syntactic error", interpreter, position, message
+  formatError = (interpreter, position) ->
+    errorHandler.formatOmetaError "Syntactic error", interpreter, position
 
   MAlice.matchAll input, "program", undefined, formatError

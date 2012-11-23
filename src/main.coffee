@@ -25,7 +25,7 @@ makeparser (parser, semantics) ->
       console.log "\nCompiling file '#{clc.greenBright file}'\n\n"
       syntaxTree = parser.parse sourceCode
       if typeof syntaxTree isnt "string"
-        semantics.analyze syntaxTree
+        semantics.analyze sourceCode, syntaxTree
       else
         console.log syntaxTree
 

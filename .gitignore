@@ -27,3 +27,4 @@ ignore
 
 #ignore build
 src/parser.js
+src/semantics.js
