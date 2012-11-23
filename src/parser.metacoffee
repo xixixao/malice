@@ -72,7 +72,7 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
                     | negation
     negation        = "!" negation:b                                  -> ['Logic', at, '!', b]
                     | comparison
-    comparison      = comparison:e1 comparisonOp:op expression:e2     -> ['Compare', at, op, e1, e2]
+    comparison      = comparison:e1 comparisonOp:op bitwiseOr:e2      -> ['Compare', at, op, e1, e2]
                     | bitwiseOr
     comparisonOp    = "==" | ">=" | "<=" | "!=" | "<" | ">"
     bitwiseOr       = bitwiseOr:e1 "|" bitwiseXOr:e2                  -> ['Arithmetic', at, '|', e1, e2]
