@@ -1,3 +1,5 @@
+clc = require('cli-color');
+
 module.exports = (OMeta, OMLib) -> parse: (input) ->
   {errorHandler, Set} = OMLib
 
@@ -104,4 +106,4 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
 
   MAlice.matchAll input, "program", undefined, (m, i) ->
       handled = errorHandler.handle m, i
-      "Syntactic error on line #{handled.lineNumber + 1}:\n#{errorHandler.bottomErrorArrow handled}"
+      "#{clc.redBright "Syntactic error on line #{handled.lineNumber + 1}"}:\n#{errorHandler.bottomErrorArrow handled}"

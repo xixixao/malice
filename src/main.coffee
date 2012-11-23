@@ -4,7 +4,8 @@ fs         = require 'fs'
 program    = require 'commander'
 makeparser = require './makeparser'
 dumper     = require './jsDump'
-dump = (data) -> console.log dumper.parse data
+clc        = require('cli-color'); 
+log = (data) -> console.log dumper.parse data
 
 # commander.js settings
 
@@ -21,7 +22,7 @@ makeparser (parser, semantics) ->
     catch e
       console.error "File '#{file}' couldn't be loaded!"
     if sourceCode
-      console.log "\nCompiling file '#{file}'\n\n"
+      console.log "\nCompiling file '#{clc.greenBright file}'\n\n"
       syntaxTree = parser.parse sourceCode
       if typeof syntaxTree isnt "string"
         semantics.analyze syntaxTree

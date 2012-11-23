@@ -1,9 +1,10 @@
 dump = require './jsDump'
+clc = require('cli-color');
 
 module.exports = (OMeta, OMLib) -> analyze: (ast) ->
 
-  error = (err) ->
-    console.error "Semantic error: \n  " + err
+  error = (message) ->
+    console.error "#{clc.redBright "Semantic error:"} \n" + ((message.split '\n').map (line) -> "  #{line}").join('\n')
 
   typeError = (name, expected, actual) ->
     error "Type mismatch for #{name}, expected '#{expected.toString()}', got '#{actual.toString()}'"
@@ -12,9 +13,19 @@ module.exports = (OMeta, OMLib) -> analyze: (ast) ->
     console.log dump.parse x for x in xs
 
   ometa MAliceSemantics
-    trans = [:t apply(t):ans] -> ans
+    trans = <[:t apply(t):ans]>:node -> ans?.node = node; ans
 
     Program createScope:scope trans:declarations
+      ->
+        hatta = scope.get 'hatta'
+        if not hatta? 
+          error "The main function named 'hatta' was not declared."
+        else if not hatta.type.equals types.function
+          error "The main function named 'hatta' was not declared. Instead, 'hatta' was declared as '#{hatta.type.toString()}'"
+        else if not hatta.returnType.equals types.void
+          error """The main function named 'hatta' cannot return a value.
+                   Instead, 'hatta' was declared to return '#{hatta.returnType.toString()}'""", hatta.at
+
 
     Function :name trans:returnType trans:args 
              createScope:scope {scope.addAll args; scope.returns returnType} trans:body exitScope
@@ -45,7 +56,7 @@ module.exports = (OMeta, OMLib) -> analyze: (ast) ->
     Assignment trans:assignable trans:value
       ->
         unless assignable.type.equals value.type
-          error "Wrong type in assignment, left hand side has type #{assignable.type.toString()}, right hand side has type #{value.type.toString()}"
+          error "Type mismatch in assignment, reference is a '#{assignable.type.toString()}', value is a '#{value.type.toString()}'"
 
     Decrement trans:variable
       ->
@@ -57,7 +68,7 @@ module.exports = (OMeta, OMLib) -> analyze: (ast) ->
 
     Output trans:value
       ->
-        error "Array of #{value.type.itemType} has no printable representation" if value.type.isArray?
+        error "#{value.type.toString()} has no printable representation" unless value.type.isDynamic
 
     Call trans:fun trans*:args
       ->
@@ -79,7 +90,7 @@ module.exports = (OMeta, OMLib) -> analyze: (ast) ->
 
     Input trans:variable
       ->
-        typeError "input", [types.number, types.letter, types.sentence].join(' or '), variable.type if variable.isFunction? or variable.type.isArray?
+        typeError "input statement", dynamicTypes.join(' or '), variable.type unless variable.type.isDynamic
 
     If trans:cond trans trans
       ->
@@ -101,21 +112,23 @@ module.exports = (OMeta, OMLib) -> analyze: (ast) ->
 
     Logic :op trans:b1 trans?:b2
       ->
-        error "Wrong type of operand, expected boolean" unless b1.type.equals types.boolean
-        error "Wrong type of operand, expected boolean" if b2? and not b2.type.equals types.boolean
+        for operand in [b1, b2] when operand?
+          typeError "operand of #{op}", types.boolean, b1.type unless b1.type.equals types.boolean
         new Value types.boolean
 
     Compare :op trans:e1 trans:e2
       ->
-        error "Wrong type of operand, expected number or a letter" unless e1.type.equalsAny types.number, types.letter
-        error "Wrong type of operand, expected number or a letter" unless e2.type.equalsAny types.number, types.letter
-        error "Wrong type of operand, operands must have the same type" unless e1.type.equals e2.type
+        comparableTypes = [types.number, types.letter]
+        comparableTypesNames = comparableTypes.join " or "
+        for operand in [e1, e2]
+          typeError "operand of '#{op}'", comparableTypesNames, operand.type unless operand.type.equalsAny comparableTypes
+        error "Type mismatch for '#{op}', operands must match, got '#{e1.type}' and '#{e2.type}'" unless e1.type.equals e2.type
         new Value types.boolean
 
     Arithmetic :op trans:e1 trans?:e2
       ->
-        error "Wrong type of operand, expected number" unless e1.type.equals types.number
-        error "Wrong type of operand, expected number" if e2? and not e2.type.equals types.number
+        for operand in [e1, e2] when operand?
+          typeError "operand of #{op}", types.number, operand.type unless e1.type.equals types.number
         new Value types.number
 
     Dereference :name
@@ -125,11 +138,11 @@ module.exports = (OMeta, OMLib) -> analyze: (ast) ->
     Element trans:array trans:index
       ->
         if not array.type.isArray?
-          error "Trying to access element of nonarray"
+          typeError "array access", new ArrayType "<?>", array.type
           type = types.error
         else
           type = array.type.itemType
-        error "Array's index must be a number" unless index.type.equals types.number
+        typeError "array index", types.number, index.type unless index.type.equals types.number
         new Value type
 
     Number :n
@@ -157,7 +170,7 @@ module.exports = (OMeta, OMLib) -> analyze: (ast) ->
   MAliceSemantics::declare = (identifier) ->
     alreadyDeclared = @currentScope.declaredInCurrent identifier
     if alreadyDeclared
-      console.error "#{identifier.name} already declared in current scope"
+      error "#{identifier.name} already declared in current scope"
     else
       @currentScope.add identifier
     #log "#{identifier.name} declared"
@@ -173,9 +186,6 @@ module.exports = (OMeta, OMLib) -> analyze: (ast) ->
     else
       console.error "#{name} undeclared"
       return new Reference name, types.error
-
-  class Node
-    constructor: (@type) ->
 
   class Scope
     constructor: (@outer, @declarations) ->
@@ -207,12 +217,26 @@ module.exports = (OMeta, OMLib) -> analyze: (ast) ->
     constructor: (@label) ->
     equals: (t) ->
       @label is t.label or t.isError
-    equalsAny: (ts...) ->
+    equalsAny: (ts) ->
       ts.some (t) ->
         @equals t
       , this
     toString: ->
       @label
+    isDynamic: true
+
+  class FunctionType extends Type
+    label: "function"
+    isDynamic: false 
+
+  class ArrayType extends Type
+    constructor: (@itemType) ->
+    isArray: yes
+    isDynamic: false
+    equals: (t) ->
+      t.isArray and @itemType.equals t.itemType
+    toString: ->
+      "spider #{@itemType}"
 
   class ErrorType extends Identifier
     isError: yes
@@ -230,23 +254,18 @@ module.exports = (OMeta, OMLib) -> analyze: (ast) ->
   class FunctionIdentifier extends Identifier
     constructor: (@name, @returnType, @args, @scope) ->
     isFunction: yes
-    type: new Type "function"
-
-  class ArrayType extends Type
-    constructor: (@itemType) ->
-    isArray: yes
-    equals: (t) ->
-      t.isArray and @itemType.equals t.itemType
-    toString: ->
-      "spider #{@itemType}"
+    isDynamic: false
+    type: new FunctionType
 
   types =
     number: new Type "number"
     letter: new Type "letter"
     sentence: new Type "sentence"
     boolean: new Type "boolean"
-    function: new Type "function"
+    function: new FunctionType
     void: new Type "void"
     error: new ErrorType
+
+  dynamicTypes = [types.number, types.letter, types.sentence]
 
   MAliceSemantics.match ast, "trans", undefined, (m, i) -> error "ERROR in #{m}, #{i}"
