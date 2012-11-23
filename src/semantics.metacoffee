@@ -8,7 +8,7 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
     console.error errorHandler.format label: "Semantic error", input: source, position: position, message: message
 
   typeError = (name, expected, actual) ->
-    error "Type mismatch for #{name}, expected '#{expected.toString()}', got '#{actual.type.toString()}'", actual.position()
+    error "Type mismatch for #{name}, expected '#{expected}', got '#{actual.type}'", actual.position()
 
   log = (xs...) ->
     console.log dump.parse x for x in xs
@@ -21,10 +21,10 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
           if not hatta?
             error "The main function named 'hatta' was not declared."
           else if not hatta.type.equals types.function
-            error "The main function named 'hatta' was not declared. Instead, 'hatta' was declared as '#{hatta.type.toString()}'"
+            error "The main function named 'hatta' was not declared. Instead, 'hatta' was declared as '#{hatta.type}'"
           else if not hatta.returnType.equals types.void
             error """The main function named 'hatta' cannot return a value.
-                     Instead, 'hatta' was declared to return '#{hatta.returnType.toString()}'""", hatta.returnType.position()
+                     Instead, 'hatta' was declared to return '#{hatta.returnType}'""", hatta.returnType.position()
 
     Function :at :name trans:returnType trans:args  {
         @declare new FunctionIdentifier name, returnType, args
@@ -53,7 +53,7 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
       ->
     Assignment :at trans:assignable trans:value
       ->  unless assignable.type.equals value.type
-            error "Type mismatch in assignment, reference is a '#{assignable.type.toString()}', value is a '#{value.type.toString()}'"
+            error "Type mismatch in assignment, reference is a '#{assignable.type}', value is a '#{value.type}'"
 
     Decrement :at trans:variable
       ->  typeError "decrement", types.number, variable unless variable.type.equals types.number
@@ -62,7 +62,7 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
       ->  typeError "increment", types.number, variable unless variable.type.equals types.number
 
     Output :at trans:value
-      ->  error "#{value.type.toString()} has no printable representation" unless value.type.isDynamic
+      ->  error "#{value.type} has no printable representation" unless value.type.isDynamic
 
     Call :at trans:fun trans*:args
       ->  typeError "function call", types.function, fun unless fun.type.equals types.function
