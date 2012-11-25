@@ -40,13 +40,23 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
   #   expectedWhere [optional]: Location as per `locate` of the declaration of the expected type
   #
   typeError = (name, expected, actual, expectedWhere) ->
-    if not Array.isArray expected
-      expected = [expected]
-    expectedLabels = ("'#{type}'" for type in expected).join ' or '
+    expectedLabels = ("'#{type}'" for type in alwaysArray expected).join ' or '
     if not expectedWhere?
       error "Type clash for #{name}, expected #{expectedLabels}, got '#{actual.type}'", actual
     else
       error "Type clash for #{name}, got '#{actual.type}', expected #{expectedLabels} as declared", actual, expectedWhere
+
+  # 
+  # Check for a type error by comparing `actual.type` to `expected` types
+  #
+  checkForTypeError = (name, expected, actual, expectedWhere) ->
+    unless actual.type.equalsAny alwaysArray expected
+      typeError name, expected, actual, expectedWhere
+      return true
+    return false
+
+  alwaysArray = (something) ->
+    if Array.isArray something then something else [something]
 
   #
   # Given a list positions, return the range that spans them all
@@ -89,11 +99,13 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
   #   rest of the rule. Similarly, the scope is reset in the `exitScope` rule
   #   (see the `Block` rule for an example of scope creation).
   #
+  #   The tree traversal is carried out by the `trans` rule. it matches the
+  #   first element in an array and uses it as the rule name of the rule
+  #   to be applied on the rest of the array.
+  #   It also captures the original array (in this case the AST node) and 
+  #   stores it in the result's `node` field.
+  #
   ometa MAliceSemantics
-
-    # Matches the first element in an array and uses it as the rule name of the rule
-    # to be applied on the rest of the array.
-    # Also captures the original array (AST node) and stores it in the result's `node` field.
     trans = <[:t apply(t):ans]>:node -> ans?.node = node[0]; ans
 
     Program :pos createScope:scope trans:declarations
@@ -128,7 +140,7 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
       ->  @declare (new Reference name, type), pos
 
     Array :pos :name trans:size trans:itemType
-      ->  typeError "specifying array size", types.number, size unless size.type.equals types.number
+      ->  checkForTypeError "specifying array size", types.number, size
           @declare (new Reference name, new ArrayType itemType), pos
 
     Skip
@@ -141,38 +153,39 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
             error "Type clash in assignment, reference is a '#{assignable.type}', value is a '#{value.type}'", value
 
     Decrement :pos trans:variable
-      ->  typeError "decrement", types.number, variable unless variable.type.equals types.number
+      ->  checkForTypeError "decrement", types.number, variable
 
     Increment :pos trans:variable
-      ->  typeError "increment", types.number, variable unless variable.type.equals types.number
+      ->  checkForTypeError "increment", types.number, variable
 
     Output :pos trans:value
       ->  error "'#{value.type}' has no printable representation", value unless value.type.isDynamic
 
     Call :pos trans:fun trans*:args
-      ->  typeError "function call", types.function, fun unless fun.type.equals types.function
+      ->  checkForTypeError "function call", types.function, fun
           if args.length isnt fun.args.length
-            error "Function #{fun.name} expects #{fun.args.length} arguments, got #{args.length} arguments", allSpan args
+            error "Call to '#{fun.name}' has #{args.length} argument#{if args.length > 1 then 's' else ''}, " +
+                  "expected #{fun.args.length} as declared", allSpan(args), allSpan(fun.args)
           else
             for arg, i in args
-              typeError "argument #{i+1}", fun.args[i].type, arg, fun.args[i].type unless arg.type.equals fun.args[i].type
+              checkForTypeError "argument #{i+1}", fun.args[i].type, arg, fun.args[i].type
           new Value fun.returnType
 
     Return :pos trans:value
       ->  currentReturnType = @currentScope.returns()
           if currentReturnType.equals types.void
             error "Return statement inside void function"
-          else if not value.type.equals currentReturnType
-            typeError "return statement", currentReturnType, value
+          else 
+            checkForTypeError "return statement", currentReturnType, value, currentReturnType
 
     Input :pos trans:variable
       ->  typeError "input statement", dynamicTypes, variable unless variable.type.isDynamic
 
     If :pos trans:cond trans trans
-      ->  typeError "condition", types.boolean, cond unless cond.type.equals types.boolean
+      ->  checkForTypeError "condition", types.boolean, cond
 
     Until :pos trans:cond trans
-      ->  typeError "loop condition", types.boolean, cond unless cond.type.equals types.boolean
+      ->  checkForTypeError "loop condition", types.boolean, cond
 
     Statements :pos trans*
 
@@ -184,20 +197,19 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
 
     Logic :pos :op trans:b1 trans?:b2
       ->  for operand in [b1, b2] when operand?
-            typeError "operand of #{op}", types.boolean, operand unless operand.type.equals types.boolean
+            checkForTypeError "operand of #{op}", types.boolean, operand
           new Value types.boolean
 
     Compare :pos :op trans:e1 trans:e2
       ->  for operand in [e1, e2]
-            typeError "operand of '#{op}'", arithmeticTypes, operand unless operand.type.equalsAny arithmeticTypes
+            checkForTypeError "operand of '#{op}'", arithmeticTypes, operand
           unless e1.type.equals e2.type
             error "Type clash for '#{op}', operands must match, got '#{e1.type}' and '#{e2.type}'", pos
           new Value types.boolean
 
     Arithmetic :pos :op trans:e1 trans:e2
       ->  for operand in [e1, e2]
-            unless operand.type.equalsAny arithmeticTypes
-              typeError "operand of '#{op}'", arithmeticTypes, operand
+            if checkForTypeError "operand of '#{op}'", arithmeticTypes, operand
               type = types.error
           if not e1.type.equals e2.type
             error "Type clash for '#{op}', operands must match, got '#{e1.type}' and '#{e2.type}'", pos
@@ -205,7 +217,7 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
           new Value type ? e1.type
 
     Unary :pos :op trans:e
-      ->  typeError "operand of '#{op}'", types.number, e unless e.type.equals types.number
+      ->  checkForTypeError "operand of '#{op}'", types.number, e
           new Value types.number
 
     Dereference :pos :name
@@ -222,7 +234,7 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
             type = types.error
           else
             type = array.type.itemType
-          typeError "array index", types.number, index unless index.type.equals types.number
+          checkForTypeError "array index", types.number, index
           new Value type
 
     Number :pos :n
@@ -241,6 +253,11 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
     exitScope
       ->  @currentScope = @currentScope.outer
 
+  #
+  # Rules are methods, but they don't have formal parameters, only matches on
+  # the input stream. Therefore, we need to append `declare` to the 
+  # MAliceSemantics prototype.
+  #
   MAliceSemantics::declare = (identifier, pos) ->
     alreadyDeclared = @currentScope.declaredInCurrent identifier
     if alreadyDeclared?
@@ -271,7 +288,8 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
     get: (name) ->
       @declarations[name] or @outer?.get name
 
-  class Identifier # Also holds a reference to the ASTnode that declares Identifier
+  # Also holds a reference to the ASTnode that declares Identifier
+  class Identifier 
     position: ->
       if @node
         [nodeName, pos] = @node
@@ -341,4 +359,10 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
   dynamicTypes = [types.number, types.letter, types.sentence]
   arithmeticTypes = [types.number, types.letter]
 
-  MAliceSemantics.match ast, "trans", undefined, (m, i) -> console.error "ERROR while traversing AST in semantic analyzer in #{m}, #{i}"
+  #
+  # Main entry point
+  # Runs the semantic analyser by traversing the given AST.
+  # At this point, it doesn't return a meaningful structure, it only serves
+  # as an analyser.
+  #
+  MAliceSemantics.match ast, "trans", undefined, (m, i) -> console.error "ERROR while traversing AST in semantic analyzer"
