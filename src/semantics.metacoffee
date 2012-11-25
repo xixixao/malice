@@ -186,7 +186,6 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
       error "'#{identifier.name}' already declared", pos, alreadyDeclared
     else
       @currentScope.add identifier
-    #log "#{identifier.name} declared"
     identifier
 
 
