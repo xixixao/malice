@@ -1,6 +1,6 @@
-dump = require './jsDump'
-clc = require 'cli-color'
-errorHandler = require './errorprinter'
+dump = require '../lib/jsDump'
+clc = require('cli-color');
+errorHandler = require('./errorprinter');
 
 module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
 
@@ -284,4 +284,4 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
   dynamicTypes = [types.number, types.letter, types.sentence]
   arithmeticTypes = [types.number, types.letter]
 
-  MAliceSemantics.match ast, "trans", undefined, (m, i) -> console.error "ERROR while traversing AST in semantic analyzer in #{m}, #{i}"
+  MAliceSemantics.match ast, "trans", undefined, (m, i) -> console.error "ERROR while traversing ast in semantic analyzer in #{m}, #{i}"

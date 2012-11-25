@@ -1,15 +1,16 @@
-# Module dependencies
-
+# Module dependencies.
 fs         = require 'fs'
 program    = require 'commander'
-makeparser = require './makeparser'
-dumper     = require './jsDump'
+dumper     = require '../lib/jsDump'
 clc        = require 'cli-color'
+
+# Remove colors when not outputting to CLI
 require './colorConsole'
+
+# Better printing function for nested data
 dump = (data) -> console.log dumper.parse data
 
-# commander.js settings
-
+# Command options
 program
   .version('MAlice Compiler in CofeeScript and MetaCoffee, version 0.0.1')
   .usage('[options] <file ...>')
@@ -17,8 +18,8 @@ program
   .parse(process.argv)
 
 # Compile files
-
-makeparser (parser, semantics) ->
+metacoffee = require './loadMetaCoffee'
+metacoffee (parser, semantics) ->
   for file in program.args
     try
       sourceCode = fs.readFileSync file, 'utf8'
@@ -34,4 +35,3 @@ makeparser (parser, semantics) ->
         semantics.analyze sourceCode, syntaxTree
       else
         console.error syntaxTree
-
