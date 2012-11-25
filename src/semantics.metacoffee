@@ -17,13 +17,15 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
   locate = (where) ->
     where?.position?() ? where
 
+  #
   # Print a nicely formatted error using the error handler
   #
-  # message:           The error message to print
-  # where [optional]:  Reference to an AST node or a position in the form [begin, end]
-  #                    Used for highlighting the location of the error
-  # detail [optional]: Reference to an AST node or a position in the form [begin, end]
-  #                    Used for highlighting the location of the error
+  #   message:           The error message to print
+  #   where [optional]:  Reference to an AST node or a position in the form [begin, end]
+  #                      Used for highlighting the location of the error
+  #   detail [optional]: Reference to an AST node or a position in the form [begin, end]
+  #                      Used for highlighting the location of the error
+  #
   error = (message, where, detail) ->
     console.error errorHandler.format
       label: "Semantic error"
@@ -32,13 +34,15 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
       message: message
       detail: locate detail
 
+  #
   # Print a type error using the error handler
   #
-  # name:          Context in which the error has arisen
-  # expected:      Identifier object (e.g. a `types` constant) representing the expected type
-  # actual:        Identifier object representing the actual type encountered
-  # expectedWhere: Reference to an AST node or a position in the form [begin, end]
-  # [optional]     of the declaration of the expected type
+  #   name:          Context in which the error has arisen
+  #   expected:      Identifier object (e.g. a `types` constant) representing the expected type
+  #   actual:        Identifier object representing the actual type encountered
+  #   expectedWhere: Reference to an AST node or a position in the form [begin, end]
+  #   [optional]     of the declaration of the expected type
+  #
   typeError = (name, expected, actual, expectedWhere) ->
     if not Array.isArray expected
       expected = [expected]
@@ -56,6 +60,7 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
   log = (xs...) ->
     console.log dump.parse x for x in xs
 
+  #
   # Rules for semantic actions
   #
   #   The rules defined here perform a match on the abstract syntax tree
