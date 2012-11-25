@@ -1,4 +1,4 @@
-dump = require './jsDump'
+dump = require '../lib/jsDump'
 clc = require('cli-color');
 errorHandler = require('./errorprinter');
 
