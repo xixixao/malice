@@ -87,7 +87,7 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     multiplicative  = multiplicative:e1 multiplicativeOp:op unary:e2  -> ['Arithmetic', at, op, e1, e2]
                     | unary
     multiplicativeOp= "*" | "/" | "%"
-    unary           = unaryOp:op unary:e                              -> ['Arithmetic', at, op, e]
+    unary           = unaryOp:op unary:e                              -> ['Unary', at, op, e]
                     | value
     unaryOp         = "~" | "-" | "+"
     value           = number | character | string
@@ -106,23 +106,7 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
                                                                            MAlice.__super__.token.call(this, word)
     initialize      -> @keywords = getKeywords @usedTokens
 
-  # Message to be printed alongside parsing error
-  errorMessage = undefined
-
-  error = (condition, message) ->
-    log message
-    if condition
-      errorMessage = message
-    condition
-
-  wipeError = ->
-    log "wiper"
-    errorMessage = undefined
-
-  errorKeyword = (isKeyword, name) ->
-    error isKeyword, "'#{name}' is a keyword, it cannot be used as a name of a reference"
-
   formatError = (interpreter, position) ->
-    errorHandler.formatOmetaError "Syntactic error", interpreter, position, errorMessage
+    errorHandler.formatOmetaError "Syntactic error", interpreter, position
 
   MAlice.matchAll input, "program", undefined, formatError
