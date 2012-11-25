@@ -1,0 +1,20 @@
+# MAlice Milestone 2
+
+## File Structure
+
+    Makefile
+    compile
+      - Launch script, executes src/main.coffee with CoffeeScript
+    src/
+      main.coffee
+        - Main entry point of the compiler / CLI
+      parser.metacoffee
+        - Grammar definitions and AST generation
+      semantics.metacoffee
+        - Semantic analysis / error checking
+      makeparser.coffee
+      colorConsole.coffee
+      errorprinter.coffee
+      jsDump.js
+      node_modules/
+
