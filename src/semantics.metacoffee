@@ -326,6 +326,7 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
   class ErrorType extends Type
     constructor: ->
       @isError = yes
+      @isDynamic = yes
     equals: (t) ->
       yes
     toString: ->
