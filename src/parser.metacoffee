@@ -23,8 +23,8 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
   log = (xs...) ->
     console.log x for x in xs
 
-  # Returns set of reserved keywords given a list of tokens used in the grammar rules
-  # Ignores non-word tokens, e.g. punctuation and operators
+  # Returns set of reserved keywords given a list of tokens used in the grammar rules.
+  # Ignores non-word tokens, e.g. punctuation and operators.
   getKeywords = (usedTokens) ->
     keywords = new Set
     words = concat (token.split /\W/ for token in usedTokens)...
@@ -40,10 +40,14 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
   #
   #   Anything to the right of the -> in the rule definition is evaluated as
   #   CoffeeScript code. In CoffeeScript, the last statement in a function is
-  #   returned implicitly without the need for a `return` keyword.
+  #   returned implicitly without the need for a `return` keyword. Most
+  #   semantic actions return a new abstract syntax tree node.
   #
   #   A rule definition without a semantic action to the right of the -> will
   #   always return the value of the application of the right-most symbol.
+  #
+  #   The `at` field is populated by the MetaCoffee compiler with the beginning
+  #   and end locations in the input stream over which the given rule matches.
   #
   #   Strings inside double quotes are a shorthand for the `token` rule
   #   application, for example "foo" is shorthand for the rule `token('foo')`.
@@ -52,8 +56,8 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
   #   of spaces. It also creates an array of used tokens, `@usedTokens`, which
   #   is used to generate the set of reserved keywords in the `initialize` rule.
   #
-  #   The `initialize` rule is implicitly called at the beginning of the parsing
-  #   process.
+  #   The `initialize` rule is implicitly called at the beginning of the
+  #   parsing process.
   #
   #   We have overwritten the built-in `token` rule to split the given
   #   string into words which can have arbitrary whitespace between each other.
