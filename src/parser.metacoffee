@@ -4,7 +4,6 @@
 #   Grammar definitions and abstract syntax tree generation
 #
 
-clc = require 'cli-color'
 errorHandler = require './errorprinter'
 
 module.exports = (OMeta, OMLib) -> parse: (input) ->
@@ -20,15 +19,13 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
   concat = (xs...) ->
     (xs[0]?.concat xs[1..]...) ? []
 
-  log = (xs...) ->
-    console.log x for x in xs
-
   # Returns set of reserved keywords given a list of tokens used in the grammar rules.
   # Ignores non-word tokens, e.g. punctuation and operators.
   getKeywords = (usedTokens) ->
     keywords = new Set
     words = concat (token.split /\W/ for token in usedTokens)...
-    (keywords.add word) for word in words when 'a' <= word[0] <= 'z' or 'A' <= word[0] <= 'Z'
+    (keywords.add word) for word in words when word.match /^[a-zA-Z]/
+    console.log keywords.values()
     keywords.values()
 
   #
@@ -62,6 +59,9 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
   #   We have overwritten the built-in `token` rule to split the given
   #   string into words which can have arbitrary whitespace between each other.
   #   This matches the behaviour of a traditional lexer.
+  #
+  #   We have also overwritten the built-in `space` rule, from which `spaces` is
+  #   derived, to ignore MAlice comments.
   #
   ometa MAlice
     program         = declarations:ds spaces end                      -> ['Program', at, ds]
@@ -156,5 +156,7 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
   #
   # Main entry point
   # Runs the parser by matching the top-level rule "program" on the given input.
+  # Returns either the newly created syntax tree or a string representing a
+  # syntax error.
   #
   MAlice.matchAll input, "program", undefined, formatError
