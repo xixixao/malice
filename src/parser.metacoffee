@@ -1,8 +1,18 @@
-clc = require('cli-color');
-errorHandler = require('./errorprinter');
+#
+# parser.metacoffee
+#
+#   Grammar definitions and abstract syntax tree generation
+#
+
+clc = require 'cli-color'
+errorHandler = require './errorprinter'
 
 module.exports = (OMeta, OMLib) -> parse: (input) ->
   {Set} = OMLib
+
+  #
+  # Utility methods
+  #
 
   join = (xs) ->
     xs.join ''
@@ -13,12 +23,39 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
   log = (xs...) ->
     console.log x for x in xs
 
+  # Returns set of reserved keywords given a list of tokens used in the grammar rules
+  # Ignores non-word tokens, e.g. punctuation and operators
   getKeywords = (usedTokens) ->
     keywords = new Set
     words = concat (token.split /\W/ for token in usedTokens)...
     (keywords.add word) for word in words when 'a' <= word[0] <= 'z' or 'A' <= word[0] <= 'Z'
     keywords.values()
 
+  #
+  # Grammar rules
+  #
+  #   Rules are of the form
+  #
+  #     rule name = non-terminal or terminal symbols -> semantic action
+  #
+  #   Anything to the right of the -> in the rule definition is evaluated as
+  #   CoffeeScript code. In CoffeeScript, the last statement in a function is
+  #   returned implicitly without the need for a `return` keyword.
+  #
+  #   Similarly, a rule application will always return the result of the
+  #   application of the right-most symbol unless.
+  #
+  #   Strings inside double quotes are a shorthand for the `token` rule
+  #   application, for example "foo" is shorthand for the rule `token('foo')`.
+  #
+  #   The built-in `token` rule matches the given string preceded by any number
+  #   of spaces. It also creates an array of used tokens, `@usedTokens`, which
+  #   is used to generate the set of reserved keywords in the `initialize` rule.
+  #   The `initialize` rule is implicitly called at the beginning of the parsing
+  #   process. We have overwritten the built-in `token` rule to split the given
+  #   string into words which can have arbitrary whitespace between each other.
+  #   This matches the behaviour of a traditional lexer.
+  #
   ometa MAlice
     program         = declarations:ds spaces end                      -> ['Program', at, ds]
     function        = (valueFunction | voidFunction):d                -> concat ['Function', at], d

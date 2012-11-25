@@ -1,4 +1,4 @@
-# Module dependencies.
+# Module dependencies
 
 fs         = require 'fs'
 program    = require 'commander'
