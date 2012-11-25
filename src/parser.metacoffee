@@ -25,7 +25,6 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     keywords = new Set
     words = concat (token.split /\W/ for token in usedTokens)...
     (keywords.add word) for word in words when word.match /^[a-zA-Z]/
-    console.log keywords.values()
     keywords.values()
 
   #
@@ -40,115 +39,117 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
   #   returned implicitly without the need for a `return` keyword. Most
   #   semantic actions return a new abstract syntax tree node.
   #
-  #   A rule definition without a semantic action to the right of the -> will
+  #   A symbol sequence without a semantic action to the right of the -> will
   #   always return the value of the application of the right-most symbol.
   #
   #   The `at` field is populated by the MetaCoffee compiler with the beginning
   #   and end locations in the input stream over which the given rule matches.
   #
-  #   Strings inside double quotes are a shorthand for the `token` rule
-  #   application, for example "foo" is shorthand for the rule `token('foo')`.
+  #   Strings inside double quotes are a shorthand for the parametrized `token`
+  #   rule, for example "foo" is shorthand for the rule `token('foo')`.
   #
   #   The built-in `token` rule matches the given string preceded by any number
-  #   of spaces. It also creates an array of used tokens, `@usedTokens`, which
-  #   is used to generate the set of reserved keywords in the `initialize` rule.
+  #   of spaces. MetaCoffee also creates an array of used tokens, `@usedTokens`,
+  #   which we use to generate the set of reserved keywords, in `initialize`.
   #
   #   The `initialize` rule is implicitly called at the beginning of the
   #   parsing process.
   #
   #   We have overwritten the built-in `token` rule to split the given
   #   string into words which can have arbitrary whitespace between each other.
-  #   This matches the behaviour of a traditional lexer.
+  #   We also check that keywords, strings ending with a letter, are not 
+  #   followed by another letter. These changes match the behaviour of a
+  #   traditional lexer.
   #
-  #   We have also overwritten the built-in `space` rule, from which `spaces` is
-  #   derived, to ignore MAlice comments.
+  #   We have also overwritten the built-in `space` rule, from which `spaces`
+  #   is derived, to ignore MAlice comments.
   #
   ometa MAlice
-    program         = declarations:ds spaces end                      -> ['Program', at, ds]
-    function        = (valueFunction | voidFunction):d                -> concat ['Function', at], d
-    valueFunction   = "The room"          identifier:i args:as
-                      "contained a" type:returnType
-                      block:b                                         -> [i, returnType, as, b]
-    voidFunction    = "The looking-glass" identifier:i args:as
-                      block:b                                         -> [i, ['Type', at, 'void'], as, b]
-    args            = "(" listOf('argDeclaration', ','):as ")"        -> concat ['Arguments', at], as
-    argDeclaration  = eType:t identifier:n                            -> ['Argument', at, n, t]
-    block           = "opened"
-                      (declarations:ds statements:ss)? "closed"       -> ['Block', at, ds, ss ? ['Skip']]
-    declarations    = declaration*:ds                                 -> concat ['Declarations', at], ds
-    declaration     = function
-                    | variable:v terminator                           -> v
-    variable        = identifier:i "was a" type:t
-                      (("of" expression:e) | "too")?                  -> ['Variable', at, i, t, e ? ['Skip']]
-                    | identifier:i "had" expression:n type:t          -> ['Array', at, i, n, t]
-    statements      = statement+:ss                                   -> concat ['Statements', at], ss
-    statement       = (assignment | saying | call):s terminator       -> s
-                    | "."                                             -> ['Skip']
-                    | finding | question | conditional | loop
-                    | block
-    terminator      =  ("." | "," | "and" | "but" | "then")
-    assignment      = assignable:x ("became" expression:e             -> ['Assignment', at, x, e]
-                                   | "drank"                          -> ['Decrement', at, x]
-                                   | "ate"                            -> ['Increment', at, x]
-                                   )
-    assignable      = arrayPiece | dereference
-    saying          = expression:e ("said Alice" | "spoke")           -> ['Output', at, e]
-    call            = dereference:i "(" expressionList:es ")"         -> concat ['Call', at, i], es
-    expressionList  = listOf('expression', ',')
-    finding         = "Alice found" expression:e "."                  -> ['Return', at, e]
-    question        = "what was" assignable:x "?"                     -> ['Input', at, x]
-    conditional     = ("perhaps" | "either") "(" expression:c ") so"
-                        statements:ss
-                      orMaybe?:elif "because Alice was unsure which"  -> ['If', at, c, ss, elif ? ['Skip']]
-    orMaybe         = "or maybe (" expression:c ") so"
-                        statements:ss
-                      orMaybe?:elif                                   -> ['If', at, c, ss, elif ? ['Skip']]
-                    | "or" statements
-    loop            = "eventually (" expression:c ") because"
-                        statements:ss "enough times"                  -> ['Until', at, c, ss]
-    eType           = "spider" type:t                                 -> ['Spider', at, t]
-                    | type
-    type            = ("number" | "letter" | "sentence"):t            -> ['Type', at, t]
-    expression      = or
-    or              = or:b1  "||" and:b2                              -> ['Logic', at, '||', b1, b2]
-                    | and
-    and             = and:b1 "&&" negation:b2                         -> ['Logic', at, '&&', b1, b2]
-                    | negation
-    negation        = "!" negation:b                                  -> ['Logic', at, '!', b]
-                    | comparison
-    comparison      = comparison:e1 comparisonOp:op bitwiseOr:e2      -> ['Compare', at, op, e1, e2]
-                    | bitwiseOr
-    comparisonOp    = "==" | ">=" | "<=" | "!=" | "<" | ">"
-    bitwiseOr       = bitwiseOr:e1 "|" bitwiseXOr:e2                  -> ['Arithmetic', at, '|', e1, e2]
-                    | bitwiseXOr
-    bitwiseXOr      = bitwiseXOr:e1 "^" bitwiseAnd:e2                 -> ['Arithmetic', at, '^', e1, e2]
-                    | bitwiseAnd
-    bitwiseAnd      = bitwiseAnd:e1 "&" additive:e2                   -> ['Arithmetic', at, '&', e1, e2]
-                    | additive
-    additive        = additive:e1 additiveOp:op multiplicative:e2     -> ['Arithmetic', at, op, e1, e2]
-                    | multiplicative
-    additiveOp      = "+" | "-"
-    multiplicative  = multiplicative:e1 multiplicativeOp:op unary:e2  -> ['Arithmetic', at, op, e1, e2]
-                    | unary
-    multiplicativeOp= "*" | "/" | "%"
-    unary           = unaryOp:op unary:e                              -> ['Unary', at, op, e]
-                    | value
-    unaryOp         = "~" | "-" | "+"
-    value           = number | character | string
-                    | arrayPiece | call | dereference
-                    | "(" expression:e ")"                            -> e
-    arrayPiece      = dereference:i "'s" expression:e "piece"         -> ['Element', at, i, e]
-    dereference     = identifier:i                                    -> ['Dereference', at, i]
-    number          = spaces digit+:ds                                -> ['Number', at, join ds]
-    character       = spaces '\'' (!'\'' !'\n' anything):c '\''       -> ['Letter', at, c]
-    string          = spaces '"' (!'"' anything)*:xs '"'              -> ['Sentence', at, join xs]
-    identifier      = spaces (letter:x (letter | '_' | digit)*:xs     -> x + join xs):i
-                      !{i in @keywords}                               -> i
-    space           = "###" (!'\n' anything)* | ^space
-    token :s        = spaced(s):ts (!letter(s[-1..]) | !letter)       -> ts.join ' '
+    program          = declarations:ds spaces end                     -> ['Program', at, ds]
+    function         = (valueFunction | voidFunction):d               -> concat ['Function', at], d
+    valueFunction    = "The room"          identifier:i args:as
+                       "contained a" type:returnType
+                       block:b                                        -> [i, returnType, as, b]
+    voidFunction     = "The looking-glass" identifier:i args:as
+                       block:b                                        -> [i, ['Type', at, 'void'], as, b]
+    args             = "(" listOf('argDeclaration', ','):as ")"       -> concat ['Arguments', at], as
+    argDeclaration   = eType:t identifier:n                           -> ['Argument', at, n, t]
+    block            = "opened"
+                       (declarations:ds statements:ss)? "closed"      -> ['Block', at, ds, ss ? ['Skip']]
+    declarations     = declaration*:ds                                -> concat ['Declarations', at], ds
+    declaration      = function
+                     | variable:v terminator                          -> v
+    variable         = identifier:i "was a" type:t
+                       (("of" expression:e) | "too")?                 -> ['Variable', at, i, t, e ? ['Skip']]
+                     | identifier:i "had" expression:n type:t         -> ['Array', at, i, n, t]
+    statements       = statement+:ss                                  -> concat ['Statements', at], ss
+    statement        = (assignment | saying | call):s terminator      -> s
+                     | "."                                            -> ['Skip']
+                     | finding | question | conditional | loop
+                     | block
+    terminator       =  ("." | "," | "and" | "but" | "then")
+    assignment       = assignable:x ("became" expression:e            -> ['Assignment', at, x, e]
+                                    | "drank"                         -> ['Decrement', at, x]
+                                    | "ate"                           -> ['Increment', at, x]
+                                    )
+    assignable       = arrayPiece | dereference
+    saying           = expression:e ("said Alice" | "spoke")          -> ['Output', at, e]
+    call             = dereference:i "(" expressionList:es ")"        -> concat ['Call', at, i], es
+    expressionList   = listOf('expression', ',')
+    finding          = "Alice found" expression:e "."                 -> ['Return', at, e]
+    question         = "what was" assignable:x "?"                    -> ['Input', at, x]
+    conditional      = ("perhaps" | "either") "(" expression:c ") so"
+                         statements:ss
+                       orMaybe?:elif "because Alice was unsure which" -> ['If', at, c, ss, elif ? ['Skip']]
+    orMaybe          = "or maybe (" expression:c ") so"
+                         statements:ss
+                       orMaybe?:elif                                  -> ['If', at, c, ss, elif ? ['Skip']]
+                     | "or" statements
+    loop             = "eventually (" expression:c ") because"
+                         statements:ss "enough times"                 -> ['Until', at, c, ss]
+    eType            = "spider" type:t                                -> ['Spider', at, t]
+                     | type
+    type             = ("number" | "letter" | "sentence"):t           -> ['Type', at, t]
+    expression       = or
+    or               = or:b1  "||" and:b2                             -> ['Logic', at, '||', b1, b2]
+                     | and
+    and              = and:b1 "&&" negation:b2                        -> ['Logic', at, '&&', b1, b2]
+                     | negation
+    negation         = "!" negation:b                                 -> ['Logic', at, '!', b]
+                     | comparison
+    comparison       = comparison:e1 comparisonOp:op bitwiseOr:e2     -> ['Compare', at, op, e1, e2]
+                     | bitwiseOr
+    comparisonOp     = "==" | ">=" | "<=" | "!=" | "<" | ">"
+    bitwiseOr        = bitwiseOr:e1 "|" bitwiseXOr:e2                 -> ['Arithmetic', at, '|', e1, e2]
+                     | bitwiseXOr
+    bitwiseXOr       = bitwiseXOr:e1 "^" bitwiseAnd:e2                -> ['Arithmetic', at, '^', e1, e2]
+                     | bitwiseAnd
+    bitwiseAnd       = bitwiseAnd:e1 "&" additive:e2                  -> ['Arithmetic', at, '&', e1, e2]
+                     | additive
+    additive         = additive:e1 additiveOp:op multiplicative:e2    -> ['Arithmetic', at, op, e1, e2]
+                     | multiplicative
+    additiveOp       = "+" | "-"
+    multiplicative   = multiplicative:e1 multiplicativeOp:op unary:e2 -> ['Arithmetic', at, op, e1, e2]
+                     | unary
+    multiplicativeOp = "*" | "/" | "%"
+    unary            = unaryOp:op unary:e                             -> ['Unary', at, op, e]
+                     | value
+    unaryOp          = "~" | "-" | "+"
+    value            = number | character | string
+                     | arrayPiece | call | dereference
+                     | "(" expression:e ")"                           -> e
+    arrayPiece       = dereference:i "'s" expression:e "piece"        -> ['Element', at, i, e]
+    dereference      = identifier:i                                   -> ['Dereference', at, i]
+    number           = spaces digit+:ds                               -> ['Number', at, join ds]
+    character        = spaces '\'' (!'\'' !'\n' anything):c '\''      -> ['Letter', at, c]
+    string           = spaces '"' (!'"' anything)*:xs '"'             -> ['Sentence', at, join xs]
+    identifier       = spaces (letter:x (letter | '_' | digit)*:xs    -> x + join xs):i
+                       !{i in @keywords}                              -> i
+    space            = "###" (!'\n' anything)* | ^space
+    token :s         = spaced(s):ts (!letter(s[-1..]) | !letter)      -> ts.join ' '
     spaced :s                                                         -> for word in s.split ' '
-                                                                           MAlice.__super__.token.call(this, word)
-    initialize      -> @keywords = getKeywords @usedTokens
+                                                                            MAlice.__super__.token.call(this, word)
+    initialize       -> @keywords = getKeywords @usedTokens
 
   formatError = (interpreter, position) ->
     errorHandler.formatOmetaError "Syntactic error", interpreter, position

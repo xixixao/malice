@@ -4,16 +4,15 @@
 #   Semantic analysis, type and error checking
 #
 
-dump = require '../lib/jsDump'
-clc = require 'cli-color'
 errorHandler = require './errorprinter'
 
 module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
 
   #
-  # Utility methods
+  # Used for highlighting the location of an error, returns a position or undefined
   #
-
+  #   where: Identifier with a position or position in the form [begin, end] or undefined
+  #
   locate = (where) ->
     where?.position?() ? where
 
@@ -21,10 +20,8 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
   # Print a nicely formatted error using the error handler
   #
   #   message:           The error message to print
-  #   where [optional]:  Reference to an AST node or a position in the form [begin, end]
-  #                      Used for highlighting the location of the error
-  #   detail [optional]: Reference to an AST node or a position in the form [begin, end]
-  #                      Used for highlighting the location of the error
+  #   where [optional]:  Location as per `locate`
+  #   detail [optional]: Location as per `locate`
   #
   error = (message, where, detail) ->
     console.error errorHandler.format
@@ -38,10 +35,9 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
   # Print a type error using the error handler
   #
   #   name:          Context in which the error has arisen
-  #   expected:      Identifier object (e.g. a `types` constant) representing the expected type
+  #   expected:      Identifier object(s) (e.g. a `types` constant) representing the expected type
   #   actual:        Identifier object representing the actual type encountered
-  #   expectedWhere: Reference to an AST node or a position in the form [begin, end]
-  #   [optional]     of the declaration of the expected type
+  #   expectedWhere [optional]: Location as per `locate` of the declaration of the expected type
   #
   typeError = (name, expected, actual, expectedWhere) ->
     if not Array.isArray expected
@@ -52,13 +48,13 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
     else
       error "Type clash for #{name}, got '#{actual.type}', expected #{expectedLabels} as declared", actual, expectedWhere
 
-  positionOf = (values) ->
+  #
+  # Given a list positions, return the range that spans them all
+  #
+  allSpan = (values) ->
     [start, _] = values[0].position()
-    [_, end] = values[-1..][0].position()
+    [_, end] = values[values.length - 1].position()
     [start, end]
-
-  log = (xs...) ->
-    console.log dump.parse x for x in xs
 
   #
   # Rules for semantic actions
@@ -86,13 +82,7 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
   #   Colons bind the value returned by the matched rule to a variable, which
   #   can then be referred to in the semantic action function.
   #
-  #   A bound variable not preceded by a rule name will match anything, i.e.
-  #
-  #     RuleName :x :y
-  #
-  #   is equivalent to
-  #
-  #     RuleName anything:x anything:y
+  #   A bound variable not preceded by a rule name will match anything.
   #
   #   A reference to the current scope is stored in the field `@currentScope`.
   #   A scope is set up by matching the `createScope` rule before matching the
@@ -101,7 +91,9 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
   #
   ometa MAliceSemantics
 
-    # Applies a rule to every element in the given array of AST nodes
+    # Matches the first element in an array and uses it as the rule name of the rule
+    # to be applied on the rest of the array.
+    # Also captures the original array (AST node) and stores it in the result's `node` field.
     trans = <[:t apply(t):ans]>:node -> ans?.node = node[0]; ans
 
     Program :pos createScope:scope trans:declarations
@@ -160,7 +152,7 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
     Call :pos trans:fun trans*:args
       ->  typeError "function call", types.function, fun unless fun.type.equals types.function
           if args.length isnt fun.args.length
-            error "Function #{fun.name} expects #{fun.args.length} arguments, got #{args.length} arguments", positionOf args
+            error "Function #{fun.name} expects #{fun.args.length} arguments, got #{args.length} arguments", allSpan args
           else
             for arg, i in args
               typeError "argument #{i+1}", fun.args[i].type, arg, fun.args[i].type unless arg.type.equals fun.args[i].type
@@ -260,9 +252,6 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
 
   class Scope
     constructor: (@outer, @declarations) ->
-
-    toString: ->
-      "Scope#{dump.parse @declarations};#{@returnType}"
 
     add: (identifier) ->
       @declarations[identifier.name] = identifier

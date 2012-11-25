@@ -1,10 +1,17 @@
 # MAlice Milestone 2
 
+## Overview
+
+Main file is                           `src/main.coffee`,
+parser (includes lexing) is defined in `src/parser.metacoffee`,
+semantic analyser is defined in        `src/semantics.metacoffee`.
+
 ## File Structure
 
     Makefile
+      - Invoke build by running `make`
     compile
-      - Launch script, executes src/main.coffee with CoffeeScript
+      - Launch script, executes src/main.js with Node.js
     src/
       main.coffee
         - Main entry point of the compiler / CLI
@@ -12,9 +19,14 @@
         - Grammar definitions and AST generation
       semantics.metacoffee
         - Semantic analysis / error checking
-      makeparser.coffee
+      loadMetaCoffee.coffee
+        - Initializes parser and semantics with MetaCoffee base
       colorConsole.coffee
+        - Removes colors from console output if redirected
       errorprinter.coffee
-      jsDump.js
-      node_modules/
+        - Pretty printer for compile-time errors
+    lib/
+    node_modules/
+    bin/
+      - stores JavaScript files built by make
 
