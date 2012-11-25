@@ -1,22 +1,26 @@
 CoffeeScript = node_modules/coffee-script/bin/coffee
-MetaCoffee = node_modules/metacoffee/node/metacoffee
-SRCDIR = src
-BUILDIR = bin
-coffees = $(wildcard $(SRCDIR)/*.coffee)
-javascripts = $(patsubst $(SRCDIR)/%.coffee, $(BUILDIR)/%.js, $(coffees))
+MetaCoffee   = node_modules/metacoffee/node/metacoffee
+SRCDIR       = src
+BINDIR       = bin
+coffees      = $(wildcard $(SRCDIR)/*.coffee)
+javascripts  = $(patsubst $(SRCDIR)/%.coffee, $(BINDIR)/%.js, $(coffees))
 
 all: $(javascripts) parser semantics
 
-.PHONY: all clean
+.PHONY: all clean parser semantics
 
-$(BUILDIR)/%.js : $(SRCDIR)/%.coffee
-	$(CoffeeScript) -c -o $(BUILDIR) $<
+$(BINDIR)/%.js : $(SRCDIR)/%.coffee
+	$(CoffeeScript) -c -o $(BINDIR) $<
 
-parser:
-	$(MetaCoffee) $(BUILDIR) $(SRCDIR)/parser.metacoffee
+parser: $(BINDIR)/parser.js
 
-semantics:
-	$(MetaCoffee) $(BUILDIR) $(SRCDIR)/semantics.metacoffee
+$(BINDIR)/parser.js: $(SRCDIR)/parser.metacoffee
+	$(MetaCoffee) $(BINDIR) $<
+
+semantics: $(BINDIR)/semantics.js
+
+$(BINDIR)/semantics.js: $(SRCDIR)/semantics.metacoffee
+	$(MetaCoffee) $(BINDIR) $<
 
 clean:
-	rm $(BUILDIR)/*.js
+	rm $(BINDIR)/*.js
