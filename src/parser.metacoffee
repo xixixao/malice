@@ -42,8 +42,8 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
   #   CoffeeScript code. In CoffeeScript, the last statement in a function is
   #   returned implicitly without the need for a `return` keyword.
   #
-  #   Similarly, a rule application will always return the result of the
-  #   application of the right-most symbol unless.
+  #   A rule definition without a semantic action to the right of the -> will
+  #   always return the value of the application of the right-most symbol.
   #
   #   Strings inside double quotes are a shorthand for the `token` rule
   #   application, for example "foo" is shorthand for the rule `token('foo')`.
@@ -51,8 +51,11 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
   #   The built-in `token` rule matches the given string preceded by any number
   #   of spaces. It also creates an array of used tokens, `@usedTokens`, which
   #   is used to generate the set of reserved keywords in the `initialize` rule.
+  #
   #   The `initialize` rule is implicitly called at the beginning of the parsing
-  #   process. We have overwritten the built-in `token` rule to split the given
+  #   process.
+  #
+  #   We have overwritten the built-in `token` rule to split the given
   #   string into words which can have arbitrary whitespace between each other.
   #   This matches the behaviour of a traditional lexer.
   #
@@ -146,4 +149,8 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
   formatError = (interpreter, position) ->
     errorHandler.formatOmetaError "Syntactic error", interpreter, position
 
+  #
+  # Main entry point
+  # Runs the parser by matching the top-level rule "program" on the given input.
+  #
   MAlice.matchAll input, "program", undefined, formatError
