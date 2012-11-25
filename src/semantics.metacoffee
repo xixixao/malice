@@ -142,8 +142,8 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
             type = types.error
           new Value type ? e1.type
 
-    Unary :pos :op trans:e1
-      ->  typeError "operand of '#{op}'", types.number, operand unless operand.type.equals types.number
+    Unary :pos :op trans:e
+      ->  typeError "operand of '#{op}'", types.number, e unless e.type.equals types.number
           new Value types.number
 
     Dereference :pos :name

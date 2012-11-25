@@ -96,7 +96,7 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     arrayPiece      = dereference:i "'s" expression:e "piece"         -> ['Element', at, i, e]
     dereference     = identifier:i                                    -> ['Dereference', at, i]
     number          = spaces digit+:ds                                -> ['Number', at, join ds]
-    character       = spaces '\'' letter:c '\''                       -> ['Letter', at, c]
+    character       = spaces '\'' (!'\'' !'\n' anything):c '\''       -> ['Letter', at, c]
     string          = spaces '"' (!'"' anything)*:xs '"'              -> ['Sentence', at, join xs]
     identifier      = spaces (letter:x (letter | '_' | digit)*:xs     -> x + join xs):i
                       !{i in @keywords}                               -> i
