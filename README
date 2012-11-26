@@ -6,6 +6,11 @@ Main file is                           `src/main.coffee`,
 parser (includes lexing) is defined in `src/parser.metacoffee`,
 semantic analyser is defined in        `src/semantics.metacoffee`.
 
+We are using the top-down parser generator tool called MetaCoffee
+(https://github.com/xixixao/meta-coffee/ - I am still working on full
+documentation) similar to PEG.js (https://github.com/dmajda/pegjs) for both
+parsing of the input MAlice code and traversing the AST.
+
 ## File Structure
 
     Makefile
