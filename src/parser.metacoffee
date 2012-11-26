@@ -42,7 +42,10 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
   #   A symbol sequence without a semantic action to the right of the -> will
   #   always return the value of the application of the right-most symbol.
   #
-  #   The `at` field is populated by the MetaCoffee compiler with the beginning
+  #   Semantic actions can be also included in between symbols, by enclosing 
+  #   them in curly braces.
+  #
+  #   The `at` field is populated by MetaCoffee with the beginning
   #   and end locations in the input stream over which the given rule matches.
   #
   #   Strings inside double quotes are a shorthand for the parametrized `token`
