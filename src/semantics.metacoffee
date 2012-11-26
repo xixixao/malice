@@ -148,9 +148,9 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
 
     Assignment :pos trans:assignable trans:value
       ->  if not assignable.type.isDynamic
-            error "Reference of type '#{assignable.type}' cannot be assigned to", assignable
+            error "Variable of type '#{assignable.type}' cannot be assigned to", assignable
           else if not assignable.type.equals value.type
-            error "Type clash in assignment, reference is a '#{assignable.type}', value is a '#{value.type}'", value
+            error "Type clash in assignment, variable is a '#{assignable.type}', value is a '#{value.type}'", value
 
     Decrement :pos trans:variable
       ->  checkForTypeError "decrement", types.number, variable
