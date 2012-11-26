@@ -158,15 +158,19 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
     Output :pos trans:value
       ->  error "'#{value.type}' has no printable representation", value unless value.type.isDynamic
 
-    Call :pos trans:fun trans*:args
-      ->  checkForTypeError "function call", types.function, fun
-          if args.length isnt fun.args.length
-            error "Call to '#{fun.name}' has #{args.length} argument#{if args.length > 1 then 's' else ''}, " +
-                  "expected #{fun.args.length} as declared", allSpan(args), allSpan(fun.args)
+    Call :pos :isStatement trans:fun trans*:args
+      ->  if not checkForTypeError "function call", types.function, fun
+            if isStatement and not fun.returnType.equals types.void
+              error "'#{fun.name}' is not a procedure, as declared", fun, fun.declaredAt
+            if args.length isnt fun.args.length
+              error "Call to '#{fun.name}' has #{args.length} argument#{if args.length > 1 then 's' else ''}, " +
+                    "expected #{fun.args.length} as declared", allSpan(args), allSpan(fun.args)
+            else
+              for arg, i in args
+                checkForTypeError "argument #{i+1}", fun.args[i].type, arg, fun.args[i].type
+            new Value fun.returnType
           else
-            for arg, i in args
-              checkForTypeError "argument #{i+1}", fun.args[i].type, arg, fun.args[i].type
-          new Value fun.returnType
+            new Value types.error
 
     Return :pos trans:value
       ->  currentReturnType = @currentScope.returns()
@@ -208,7 +212,7 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
       ->  for operand in [e1, e2]
             if checkForTypeError "operand of '#{op}'", arithmeticTypes, operand
               type = types.error
-          if not e1.type.equals e2.type
+          if not type? and not e1.type.equals e2.type
             error "Type clash for '#{op}', operands must match, got '#{e1.type}' and '#{e2.type}'", pos
             type = types.error
           new Value type ? e1.type

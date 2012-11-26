@@ -97,7 +97,8 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
                                     )
     assignable       = arrayPiece | dereference
     saying           = expression:e ("said Alice" | "spoke")          -> ['Output', at, e]
-    call             = dereference:i "(" expressionList:es ")"        -> concat ['Call', at, i], es
+    call             = callExpression:e                               -> e[2] = yes; e
+    callExpression   = dereference:i "(" expressionList:es ")"        -> concat ['Call', at, no, i], es
     expressionList   = listOf('expression', ',')
     finding          = "Alice found" expression:e "."                 -> ['Return', at, e]
     question         = "what was" assignable:x "?"                    -> ['Input', at, x]
@@ -139,7 +140,7 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
                      | value
     unaryOp          = "~" | "-" | "+"
     value            = number | character | string
-                     | arrayPiece | call | dereference
+                     | arrayPiece | callExpression | dereference
                      | "(" expression:e ")"                           -> e
     arrayPiece       = dereference:i "'s" expression:e "piece"        -> ['Element', at, i, e]
     dereference      = identifier:i                                   -> ['Dereference', at, i]
