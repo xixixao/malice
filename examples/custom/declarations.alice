@@ -1,6 +1,13 @@
+
 The looking-glass hatta() opened
-  x was a number of 5.
-  The looking-glass bla() opened closed
-  y was a number of 3.
+  The room bla(number x) contained a number opened
+    opened
+       opened
+
+      Alice found 5.
+      closed
+      .
+    closed
+    closed
   .
 closed

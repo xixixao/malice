@@ -119,12 +119,9 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
                   "Instead, 'hatta' was declared to return '#{hatta.returnType}'", hatta.returnType
 
     Function :pos :name trans:returnType trans:args  {
-        identifier = @declare (new FunctionIdentifier name, returnType, args), pos
-        scope = @createScope()
-        scope.addAll args
-        scope.returns returnType
-        return identifier
-      }:i trans:body exitScope
+        @prepareScope = [args, returnType]
+        @declare (new FunctionIdentifier name, returnType, args), pos
+      }:i trans:body
       -> i
 
     Arguments :pos trans*
@@ -249,6 +246,12 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
     createScope
       ->  outerScope = @currentScope
           @currentScope = new Scope outerScope, {}
+          if @prepareScope?
+            [args, returnType] = @prepareScope
+            @currentScope.addAll args
+            @currentScope.returns returnType
+            delete @prepareScope
+          @currentScope
 
     exitScope
       ->  @currentScope = @currentScope.outer
