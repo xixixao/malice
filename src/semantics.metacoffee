@@ -121,8 +121,9 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
     Function :pos :name trans:returnType trans:args  {
         @prepareScope = [args, returnType]
         @declare (new FunctionIdentifier name, returnType, args), pos
-      }:i trans:body
-      -> i
+      }:i trans:bodyReturns
+      -> error "There are paths in '#{name}' that don't return a value" unless bodyReturns or returnType.equals types.void
+         i
 
     Arguments :pos trans*
 
@@ -130,6 +131,7 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
       ->  new Reference name, type
 
     Block :pos createScope:scope trans:declarations trans:statements exitScope
+      -> statements
 
     Declarations :pos trans*
 
@@ -141,25 +143,30 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
           @declare (new Reference name, new ArrayType itemType), pos
 
     Skip
-      ->
+      -> false
 
     Assignment :pos trans:assignable trans:value
       ->  if not assignable.type.isDynamic
             error "Variable of type '#{assignable.type}' cannot be assigned to", assignable
           else if not assignable.type.equals value.type
             error "Type clash in assignment, variable is a '#{assignable.type}', value is a '#{value.type}'", value
+          false
 
     Decrement :pos trans:variable
       ->  checkForTypeError "decrement", types.number, variable
+          false
 
     Increment :pos trans:variable
       ->  checkForTypeError "increment", types.number, variable
+          false
 
     Output :pos trans:value
       ->  error "'#{value.type}' has no printable representation", value unless value.type.isDynamic
+          false
 
     Call :pos :isStatement trans:fun trans*:args
-      ->  if not checkForTypeError "function call", types.function, fun
+      ->  validFunction = not checkForTypeError "function call", types.function, fun
+          if validFunction
             if isStatement and not fun.returnType.equals types.void
               error "'#{fun.name}' is not a procedure, as declared", fun, fun.declaredAt
             if args.length isnt fun.args.length
@@ -168,9 +175,10 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
             else
               for arg, i in args
                 checkForTypeError "argument #{i+1}", fun.args[i].type, arg, fun.args[i].type
-            new Value fun.returnType
+          if isStatement
+            return false
           else
-            new Value types.error
+            new Value if validFunction then fun.returnType else types.error
 
     Return :pos trans:value
       ->  currentReturnType = @currentScope.returns()
@@ -178,17 +186,22 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
             error "Return statement inside void function"
           else 
             checkForTypeError "return statement", currentReturnType, value, currentReturnType
+          true
 
     Input :pos trans:variable
       ->  typeError "input statement", dynamicTypes, variable unless variable.type.isDynamic
+          false
 
-    If :pos trans:cond trans trans
+    If :pos trans:cond trans:ifReturns trans:elseReturns
       ->  checkForTypeError "condition", types.boolean, cond
+          ifReturns and elseReturns
 
     Until :pos trans:cond trans
       ->  checkForTypeError "loop condition", types.boolean, cond
+          false
 
-    Statements :pos trans*
+    Statements :pos trans*:returns
+      -> returns.some (statementReturns) -> statementReturns
 
     Spider :pos trans:itemType
       ->  new ArrayType itemType
