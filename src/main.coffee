@@ -26,7 +26,7 @@ metacoffee (parser, semantics) ->
     catch e
       console.error "File '#{file}' couldn't be loaded!"
     if sourceCode?
-      console.log "\nCompiling file '#{clc.greenBright file}'\n\n"
+      console.log "\nCompiling file '#{clc.greenBright file}'\n"
       syntaxTree = parser.parse sourceCode
       if typeof syntaxTree isnt "string"
         if program.tree

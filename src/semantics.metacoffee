@@ -23,13 +23,19 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
   #   where [optional]:  Location as per `locate`
   #   detail [optional]: Location as per `locate`
   #
-  error = (message, where, detail) ->
+  printError = (label, message, where, detail) ->
     console.error errorHandler.format
-      label: "Semantic error"
+      label: label
       input: source
       position: locate where
       message: message
       detail: locate detail
+
+  error = (message, where, detail) ->
+    printError "Semantic error", message, where, detail
+
+  warning = (message, where, detail) ->
+    printError "Semantic warning", message, where, detail
 
   #
   # Print a type error using the error handler
@@ -122,7 +128,7 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
         @prepareScope = [args, returnType]
         @declare (new FunctionIdentifier name, returnType, args), pos
       }:i trans:bodyReturns
-      -> error "There are paths in '#{name}' that don't return a value" unless bodyReturns or returnType.equals types.void
+      -> warning "There are paths in '#{name}' that don't return a value" unless bodyReturns or returnType.equals types.void
          i
 
     Arguments :pos trans*
