@@ -88,7 +88,7 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     statements       = statement+:ss                                  -> concat ['Statements', at], ss
     statement        = (assignment | saying | call):s terminator      -> s
                      | "."                                            -> ['Skip']
-                     | finding | question | conditional | loop
+                     | finding | question | perhaps | either | loop
                      | block
     terminator       =  ("." | "," | "and" | "but" | "then")
     assignment       = assignable:x ("became" expression:e            -> ['Assignment', at, x, e]
@@ -102,13 +102,13 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     expressionList   = listOf('expression', ',')
     finding          = "Alice found" expression:e "."                 -> ['Return', at, e]
     question         = "what was" assignable:x "?"                    -> ['Input', at, x]
-    conditional      = ("perhaps" | "either") "(" expression:c ") so"
-                         statements:ss
-                       orMaybe?:elif "because Alice was unsure which" -> ['If', at, c, ss, elif ? ['Skip']]
-    orMaybe          = "or maybe (" expression:c ") so"
-                         statements:ss
-                       orMaybe?:elif                                  -> ['If', at, c, ss, elif ? ['Skip']]
-                     | "or" statements
+    perhaps          = "perhaps"  if:css elseIf?:elif endIf           -> concat ['If', at], css, [elif ? ['Skip']]
+    either           = "either"   if:css    else:els  endIf           -> concat ['If', at], css, [els]
+    elseIf           = "or maybe" if:css elseIf?:elif                 -> concat ['If', at], css, [elif ? ['Skip']]
+                     | else
+    if               = "(" expression:c ") so" statements:ss          -> [c, ss]
+    else             =  "or" statements
+    endIf            = "because Alice was unsure which"
     loop             = "eventually (" expression:c ") because"
                          statements:ss "enough times"                 -> ['Until', at, c, ss]
     eType            = "spider" type:t                                -> ['Spider', at, t]
