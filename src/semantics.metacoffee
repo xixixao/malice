@@ -5,6 +5,7 @@
 #
 
 errorHandler = require './errorprinter'
+{concat, join} = require './metaCoffeeUtils'
 
 module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
 
@@ -48,21 +49,21 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
   typeError = (name, expected, actual, expectedWhere) ->
     expectedLabels = ("'#{type}'" for type in alwaysArray expected).join ' or '
     if not expectedWhere?
-      error "Type clash for #{name}, expected #{expectedLabels}, got '#{actual.type}'", actual
+      error "Type clash for #{name}, expected #{expectedLabels}, got '#{actual.type()}'", actual
     else
-      error "Type clash for #{name}, got '#{actual.type}', expected #{expectedLabels} as declared", actual, expectedWhere
+      error "Type clash for #{name}, got '#{actual.type()}', expected #{expectedLabels} as declared", actual, expectedWhere
 
-  # 
-  # Check for a type error by comparing `actual.type` to `expected` types
+  #
+  # Check for a type error by comparing `actual.type()` to `expected` types
   #
   checkForTypeError = (name, expected, actual, expectedWhere) ->
-    unless actual.type.equalsAny alwaysArray expected
+    unless actual.type().equalsAny alwaysArray expected
       typeError name, expected, actual, expectedWhere
       return true
     return false
 
   alwaysArray = (something) ->
-    if Array.isArray something then something else [something]
+    if Array.isArray something[0] then something else [something]
 
   #
   # Given a list positions, return the range that spans them all
@@ -108,199 +109,204 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
   #   The tree traversal is carried out by the `trans` rule. it matches the
   #   first element in an array and uses it as the rule name of the rule
   #   to be applied on the rest of the array.
-  #   It also captures the original array (in this case the AST node) and 
+  #   It also captures the original array (in this case the AST node) and
   #   stores it in the result's `node` field.
   #
   ometa MAliceSemantics
-    trans = <[:t apply(t):ans]>:node -> ans?.node = node[0]; ans
+    trans = [:t apply(t):ans] -> ans
 
     Program :pos createScope:scope trans:declarations
       ->  hatta = scope.get 'hatta'
           if not hatta?
             error "The main function named 'hatta' was not declared."
-          else if not hatta.type.equals types.function
-            error "The main function named 'hatta' was not declared. Instead, 'hatta' was declared as '#{hatta.type}'", hatta
-          else if not hatta.returnType.equals types.void
+          else if not hatta.type().equals types.function
+            error "The main function named 'hatta' was not declared. Instead, 'hatta' was declared as '#{hatta.type()}'", hatta
+          else if not hatta.returnType().equals types.void
             error "The main function named 'hatta' cannot return a value. " +
-                  "Instead, 'hatta' was declared to return '#{hatta.returnType}'", hatta.returnType
+                  "Instead, 'hatta' was declared to return '#{hatta.returnType()}'", hatta.returnType()
+          new Node 'Program', pos, declarations
 
     Function :pos :name trans:returnType trans:args  {
         @prepareScope = [args, returnType]
-        @declare (new FunctionIdentifier name, returnType, args), pos
-      }:i trans:bodyReturns
-      -> warning "There are paths in '#{name}' that don't return a value" unless bodyReturns or returnType.equals types.void
-         i
+        @declare new FunctionNode 'Function', pos, types.function, name, returnType, args
+      }:fun trans:body
+      -> warning "There are paths in '#{name}' that don't return a value" unless body.doesReturn() or returnType.equals types.void
+         concat fun, [body]
 
-    Arguments :pos trans*
+    Arguments :pos trans*:args
 
     Argument :pos :name trans:type
-      ->  new Reference name, type
+      ->  new Reference 'Argument', pos, type, name
 
     Block :pos createScope:scope trans:declarations trans:statements exitScope
-      -> statements
+      ->  new Executes 'Block', pos, (statements.doesReturn()), declarations, statements
 
-    Declarations :pos trans*
+    Declarations :pos trans*:ds
+      ->  new Node 'Declarations', pos, ds
 
     Variable :pos :name trans:type trans:value
-      ->  @declare (new Reference name, type), pos
+      ->  @declare new Reference 'Variable', pos, type, name, value
 
     Array :pos :name trans:size trans:itemType
       ->  checkForTypeError "specifying array size", types.number, size
-          @declare (new Reference name, new ArrayType itemType), pos
+          @declare new Reference 'Array', pos, new ArrayType(itemType), name, size
 
     Skip
-      -> false
+      -> new Executes 'Skip', undefined, false
 
     Assignment :pos trans:assignable trans:value
-      ->  if not assignable.type.isDynamic
-            error "Variable of type '#{assignable.type}' cannot be assigned to", assignable
-          else if not assignable.type.equals value.type
-            error "Type clash in assignment, variable is a '#{assignable.type}', value is a '#{value.type}'", value
-          false
+      ->  if not assignable.type().isDynamic
+            error "Variable of type '#{assignable.type()}' cannot be assigned to", assignable
+          else if not assignable.type().equals value.type()
+            error "Type clash in assignment, variable is a '#{assignable.type()}', value is a '#{value.type()}'", value
+          new Executes 'Assignment', pos, false, assignable, value
 
     Decrement :pos trans:variable
       ->  checkForTypeError "decrement", types.number, variable
-          false
+          new Executes  'Decrement', pos, false, variable
 
     Increment :pos trans:variable
       ->  checkForTypeError "increment", types.number, variable
-          false
+          new Executes 'Increment', pos, false, variable
 
     Output :pos trans:value
-      ->  error "'#{value.type}' has no printable representation", value unless value.type.isDynamic
-          false
+      ->  error "'#{value.type()}' has no printable representation", value unless value.type().isDynamic
+          new Executes 'Output', pos, false, value
 
     Call :pos :isStatement trans:fun trans*:args
       ->  validFunction = not checkForTypeError "function call", types.function, fun
           if validFunction
-            if isStatement and not fun.returnType.equals types.void
-              error "'#{fun.name}' is not a procedure, as declared", fun, fun.declaredAt
-            if args.length isnt fun.args.length
-              error "Call to '#{fun.name}' has #{args.length} argument#{if args.length > 1 then 's' else ''}, " +
-                    "expected #{fun.args.length} as declared", allSpan(args), allSpan(fun.args)
+            if isStatement and not fun.returnType().equals types.void
+              error "'#{fun.name()}' is not a procedure, as declared", fun, fun.declaredAt()
+            if args.length isnt fun.args().length
+              error "Call to '#{fun.name()}' has #{args.length} argument#{if args.length > 1 then 's' else ''}, " +
+                    "expected #{fun.args().length} as declared", allSpan(args), allSpan(fun.args())
             else
               for arg, i in args
-                checkForTypeError "argument #{i+1}", fun.args[i].type, arg, fun.args[i].type
+                checkForTypeError "argument #{i+1}", fun.args()[i].type(), arg, fun.args()[i].type()
           if isStatement
-            return false
+            concat new Executes('Call', pos, false, isStatement, fun), args
           else
-            new Value if validFunction then fun.returnType else types.error
+            type = if validFunction then fun.returnType() else types.error
+            concat new Value('Call', pos, type, isStatement, fun), args
 
     Return :pos trans:value
       ->  currentReturnType = @currentScope.returns()
           if currentReturnType.equals types.void
             error "Return statement inside void function"
-          else 
+          else
             checkForTypeError "return statement", currentReturnType, value, currentReturnType
-          true
+          new Executes 'Return', pos, true, value
 
     Input :pos trans:variable
-      ->  typeError "input statement", dynamicTypes, variable unless variable.type.isDynamic
-          false
+      ->  typeError "input statement", dynamicTypes, variable unless variable.type().isDynamic
+          new Executes 'Input', pos, false, variable
 
     If :pos trans:cond trans:ifReturns trans:elseReturns
       ->  checkForTypeError "condition", types.boolean, cond
-          ifReturns and elseReturns
+          new Executes 'If', pos, ifReturns.doesReturn() and elseReturns.doesReturn(), cond, ifReturns, elseReturns
 
-    Until :pos trans:cond trans
+    Until :pos trans:cond trans:body
       ->  checkForTypeError "loop condition", types.boolean, cond
-          false
+          new Executes 'Until', pos, false, cond, body
 
-    Statements :pos trans*:returns
-      -> returns.some (statementReturns) -> statementReturns
+    Statements :pos trans*:ss
+      -> concat new Executes('Statements', pos, (ss.some (statement) -> statement.doesReturn())), ss
 
     Spider :pos trans:itemType
-      ->  new ArrayType itemType
+      ->  new ArrayType 'Spider', pos, itemType
 
     Type :pos :label
-      ->  new Type label
+      ->  new Type 'Type', pos, label
 
     Logic :pos :op trans:b1 trans?:b2
       ->  for operand in [b1, b2] when operand?
             checkForTypeError "operand of #{op}", types.boolean, operand
-          new Value types.boolean
+          new Value 'Logic', pos, types.boolean, op, b1, b2
 
     Compare :pos :op trans:e1 trans:e2
       ->  for operand in [e1, e2]
             checkForTypeError "operand of '#{op}'", arithmeticTypes, operand
-          unless e1.type.equals e2.type
-            error "Type clash for '#{op}', operands must match, got '#{e1.type}' and '#{e2.type}'", pos
-          new Value types.boolean
+          unless e1.type().equals e2.type()
+            error "Type clash for '#{op}', operands must match, got '#{e1.type()}' and '#{e2.type()}'", pos
+          new Value 'Compare', pos, types.boolean, op, e1, e2
 
     Arithmetic :pos :op trans:e1 trans:e2
       ->  for operand in [e1, e2]
             if checkForTypeError "operand of '#{op}'", arithmeticTypes, operand
-              type = types.error
-          if not type? and not e1.type.equals e2.type
-            error "Type clash for '#{op}', operands must match, got '#{e1.type}' and '#{e2.type}'", pos
-            type = types.error
-          new Value type ? e1.type
+              errorType = types.error
+          if not errorType? and not e1.type().equals e2.type()
+            error "Type clash for '#{op}', operands must match, got '#{e1.type()}' and '#{e2.type()}'", pos
+            errorType = types.error
+          new Value 'Compare', pos, errorType ? e1.type(), op, e1, e2
 
     Unary :pos :op trans:e
       ->  checkForTypeError "operand of '#{op}'", types.number, e
-          new Value types.number
+          new Value 'Unary', pos, types.number, op, e
 
     Dereference :pos :name
       ->  reference = @currentScope.get name
           if reference?
-            Reference.from reference
+            Reference.from reference, pos
           else
-            error "'#{name}' is undeclared", pos
-            new Reference name, types.error
+            error "'#{name}' has not been declared", pos
+            new Reference 'Dereference', pos, types.error, name
 
     Element :pos trans:array trans:index
-      ->  if not array.type.isArray?
+      ->  if not array.type().isArray?
             typeError "array access", new ArrayType "<?>", array
             type = types.error
           else
-            type = array.type.itemType
+            type = array.type().itemType()
           checkForTypeError "array index", types.number, index
-          new Value type
+          new Value 'Element', pos, type, array, index
 
     Number :pos :n
-      ->  new Value types.number
+      ->  new Value 'Element', pos, types.number, n
 
     Letter :pos :ch
-      ->  new Value types.letter
+      ->  new Value 'Letter', pos, types.letter, ch
 
     Sentence :pos :string
-      ->  new Value types.sentence
+      ->  new Value 'Sentence', pos, types.sentence, string
 
-    createScope
-      ->  outerScope = @currentScope
-          @currentScope = new Scope outerScope, {}
-          if @prepareScope?
-            [args, returnType] = @prepareScope
-            @currentScope.addAll args
-            @currentScope.returns returnType
-            delete @prepareScope
-          @currentScope
+    createScope {
+        outerScope = @currentScope
+        @currentScope = new Scope outerScope, {}
+      } (&{@prepareScope?} functionScope(@prepareScope))?
+      ->  @currentScope
 
+    functionScope [[anything*:args] :returnType]
+      ->  @currentScope.addAll args
+          @currentScope.returns returnType
+          delete @prepareScope
     exitScope
       ->  @currentScope = @currentScope.outer
 
   #
   # Rules are methods, but they don't have formal parameters, only matches on
-  # the input stream. Therefore, we need to append `declare` to the 
+  # the input stream. Therefore, we need to append `declare` to the
   # MAliceSemantics prototype.
   #
-  MAliceSemantics::declare = (identifier, pos) ->
-    alreadyDeclared = @currentScope.declaredInCurrent identifier
+  MAliceSemantics::declare = (node) ->
+    alreadyDeclared = @currentScope.declaredInCurrent node
     if alreadyDeclared?
-      error "'#{identifier.name}' already declared", pos, alreadyDeclared
+      error "'#{node.name()}' already declared", node.position(), alreadyDeclared
     else
-      @currentScope.add identifier
-    identifier
+      @currentScope.add node
+    node
 
+  # Scope
+  # -----
 
   class Scope
     constructor: (@outer, @declarations) ->
 
-    add: (identifier) ->
-      @declarations[identifier.name] = identifier
+    add: (node) ->
+      @declarations[node.name()] = node
 
-    addAll: (identifiers) ->
-      @add identifier for identifier in identifiers
+    addAll: (nodes) ->
+      @add node for node in nodes
 
     returns: (type) ->
       if type?
@@ -308,46 +314,93 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
       else
         @returnType ? @outer.returns()
 
-    declaredInCurrent: (identifier) ->
-      @declarations[identifier.name]
+    declaredInCurrent: (node) ->
+      @declarations[node.name()]
 
     get: (name) ->
       @declarations[name] or @outer?.get name
 
-  # Also holds a reference to the ASTnode that declares Identifier
-  class Identifier 
-    position: ->
-      if @node
-        [nodeName, pos] = @node
-        pos
-      else
-        null
+  # Nodes
+  # -----
 
-  class Type extends Identifier
-    constructor: (@label) ->
-      @isDynamic = true
+  # Node is [node, position, ...]
+  class Node
+    @wrap = (node, methods) ->
+      for name, index of methods
+        do (index) ->
+          node[name] = (value) ->
+            if value?
+              @[index] = value
+              this
+            else
+              @[index]
+      node
+    constructor: ->
+      node =  Array.apply (new Array), arguments
+      return Node.wrap node, position: 1
+
+  # Executes is [node, position, returns, ...]
+  class Executes extends Node
+    constructor: ->
+      return Node.wrap super, doesReturn: 2
+
+  # Value is [node, position, type, ...]
+  class Value extends Node
+    constructor: ->
+      return Node.wrap super, type: 2
+
+  # Reference is [node, position, type, name, ...]
+  class Reference extends Value
+    constructor: ->
+      return Node.wrap super, name: 3
+    @from: (node, at) ->
+      copy = new Reference
+      for own i, value of node
+        copy[i] = value
+      copy.declaredAt = -> node.position()
+      copy.position at
+      copy
+
+  # FunctionNode is [node, position, type, name, returnType, ...]
+  class FunctionNode extends Reference
+    constructor: ->
+      return Node.wrap super, returnType: 4, args: 5
+
+  # Types
+  # -----
+
+  # Type is [node, position, label, ...]
+  class Type extends Node
+    constructor: ->
+      node = Node.wrap super, label: 2, toString: 2
+      node.isDynamic = true
+      node.equals = Type::equals
+      node.equalsAny = Type::equalsAny
+      return node
     equals: (t) ->
-      @label is t.label or t.isError
+      @label() is t.label() or t.isError
     equalsAny: (ts) ->
       ts.some (t) ->
         @equals t
       , this
-    toString: ->
-      @label
 
   class FunctionType extends Type
     constructor: ->
-      super "function"
-      @isDynamic = no
+      node = super 'Type', undefined, "function"
+      node.isDynamic = no
+      return node
 
+  # ArrayType is [node, position, label, itemType, ...]
   class ArrayType extends Type
-    constructor: (@itemType) ->
-      @isArray = yes
-      @isDynamic = no
+    constructor: () ->
+      node = Node.wrap super, itemType: 3
+      node.isArray = yes
+      node.isDynamic = no
+      node.equals = ArrayType::equals
+      node.toString = -> "spider #{@itemType()}"
+      return node
     equals: (t) ->
-      t.isArray and @itemType.equals t.itemType
-    toString: ->
-      "spider #{@itemType}"
+      t.isArray and @itemType().equals t.itemType()
 
   class ErrorType extends Type
     constructor: ->
@@ -358,29 +411,13 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
     toString: ->
       "error"
 
-  class Value extends Identifier
-    constructor: (@type) ->
-
-  class Reference extends Identifier
-    constructor: (@name, @type) ->
-    @from: (identifier) ->
-      copy = new Reference
-      for own key, value of identifier
-        copy[key] = value
-      copy.declaredAt = identifier.position()
-      copy
-
-  class FunctionIdentifier extends Identifier
-    constructor: (@name, @returnType, @args) ->
-      @type = new FunctionType
-
   types =
-    number: new Type "number"
-    letter: new Type "letter"
-    sentence: new Type "sentence"
-    boolean: new Type "boolean"
+    number: new Type 'Type', 0, "number"
+    letter: new Type 'Type', 0, "letter"
+    sentence: new Type 'Type', 0, "sentence"
+    boolean: new Type 'Type', 0, "boolean"
     function: new FunctionType
-    void: new Type "void"
+    void: new Type 'Type', 0, "void"
     error: new ErrorType
 
   dynamicTypes = [types.number, types.letter, types.sentence]
@@ -389,7 +426,6 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
   #
   # Main entry point
   # Runs the semantic analyser by traversing the given AST.
-  # At this point, it doesn't return a meaningful structure, it only serves
-  # as an analyser.
+  # At this point, returns the augmented AST.
   #
   MAliceSemantics.match ast, "trans", undefined, (m, i) -> console.error "ERROR while traversing AST in semantic analyzer"

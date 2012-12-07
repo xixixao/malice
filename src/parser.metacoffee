@@ -5,19 +5,10 @@
 #
 
 errorHandler = require './errorprinter'
+{concat, join} = require './metaCoffeeUtils'
 
 module.exports = (OMeta, OMLib) -> parse: (input) ->
   {Set} = OMLib
-
-  #
-  # Utility methods
-  #
-
-  join = (xs) ->
-    xs.join ''
-
-  concat = (xs...) ->
-    (xs[0]?.concat xs[1..]...) ? []
 
   # Returns set of reserved keywords given a list of tokens used in the grammar rules.
   # Ignores non-word tokens, e.g. punctuation and operators.

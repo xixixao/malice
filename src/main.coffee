@@ -29,9 +29,9 @@ metacoffee (parser, semantics) ->
       console.log "\nCompiling file '#{clc.greenBright file}'\n"
       syntaxTree = parser.parse sourceCode
       if typeof syntaxTree isnt "string"
+        syntaxTree = semantics.analyze sourceCode, syntaxTree
         if program.tree
           dump syntaxTree
           console.log "\n"
-        semantics.analyze sourceCode, syntaxTree
       else
         console.error syntaxTree
