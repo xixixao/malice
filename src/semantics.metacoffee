@@ -263,7 +263,7 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
           new Value 'Element', pos, type, array, index
 
     Number :pos :n
-      ->  new Value 'Element', pos, types.number, n
+      ->  new Value 'Number', pos, types.number, n
 
     Letter :pos :ch
       ->  new Value 'Letter', pos, types.letter, ch
