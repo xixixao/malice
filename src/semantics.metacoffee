@@ -6,6 +6,7 @@
 
 errorHandler = require './errorprinter'
 {concat, join} = require './metaCoffeeUtils'
+{log} = require './utils'
 
 module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
 
@@ -149,7 +150,7 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
 
     Array :pos :name trans:size trans:itemType
       ->  checkForTypeError "specifying array size", types.number, size
-          @declare new Reference 'Array', pos, new ArrayType(itemType), name, size
+          @declare new Reference 'Array', pos, new ArrayType(pos, itemType), name, size
 
     Skip
       -> new Executes 'Skip', undefined, false
@@ -214,10 +215,10 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
       -> concat new Executes('Statements', pos, (ss.some (statement) -> statement.doesReturn())), ss
 
     Spider :pos trans:itemType
-      ->  new ArrayType 'Spider', pos, itemType
+      ->  new ArrayType pos, itemType
 
     Type :pos :label
-      ->  new Type 'Type', pos, label
+      ->  new SimpleType pos, label
 
     Logic :pos :op trans:b1 trans?:b2
       ->  for operand in [b1, b2] when operand?
@@ -254,7 +255,7 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
 
     Element :pos trans:array trans:index
       ->  if not array.type().isArray?
-            typeError "array access", new ArrayType "<?>", array
+            typeError "array access", new ArrayType(0, "<?>"), array
             type = types.error
           else
             type = array.type().itemType()
@@ -369,10 +370,10 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
   # Types
   # -----
 
-  # Type is [node, position, label, ...]
+  # Type is [node, position, ...]
   class Type extends Node
     constructor: ->
-      node = Node.wrap super, label: 2, toString: 2
+      node = Node.wrap super, label: 2
       node.isDynamic = true
       node.equals = Type::equals
       node.equalsAny = Type::equalsAny
@@ -384,16 +385,24 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
         @equals t
       , this
 
+  # SimpleType is [node, position, label, ...]
+  class SimpleType extends Type
+    constructor: (values...)->
+      values.unshift 'Type'
+      node = Node.wrap super(values...), toString: 2
+      return node
+
   class FunctionType extends Type
     constructor: ->
-      node = super 'Type', undefined, "function"
+      node = super undefined, "function"
       node.isDynamic = no
       return node
 
-  # ArrayType is [node, position, label, itemType, ...]
+  # ArrayType is [node, position, itemType, ...]
   class ArrayType extends Type
-    constructor: () ->
-      node = Node.wrap super, itemType: 3
+    constructor: (values...) ->
+      values.unshift 'ArrayType'
+      node = Node.wrap super(values...), itemType: 2
       node.isArray = yes
       node.isDynamic = no
       node.equals = ArrayType::equals
@@ -412,12 +421,12 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
       "error"
 
   types =
-    number: new Type 'Type', 0, "number"
-    letter: new Type 'Type', 0, "letter"
-    sentence: new Type 'Type', 0, "sentence"
-    boolean: new Type 'Type', 0, "boolean"
+    number: new SimpleType undefined, "number"
+    letter: new SimpleType undefined, "letter"
+    sentence: new SimpleType undefined, "sentence"
+    boolean: new SimpleType undefined, "boolean"
     function: new FunctionType
-    void: new Type 'Type', 0, "void"
+    void: new SimpleType undefined, "void"
     error: new ErrorType
 
   dynamicTypes = [types.number, types.letter, types.sentence]

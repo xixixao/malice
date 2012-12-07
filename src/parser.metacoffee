@@ -6,6 +6,7 @@
 
 errorHandler = require './errorprinter'
 {concat, join} = require './metaCoffeeUtils'
+{log} = require './utils'
 
 module.exports = (OMeta, OMLib) -> parse: (input) ->
   {Set} = OMLib

@@ -1,14 +1,11 @@
 # Module dependencies.
 fs         = require 'fs'
 program    = require 'commander'
-dumper     = require '../lib/jsDump'
 clc        = require 'cli-color'
+{log}      = require './utils'
 
 # Remove colors when not outputting to CLI
 require './colorConsole'
-
-# Better printing function for nested data
-dump = (data) -> console.log dumper.parse data
 
 # Command options
 program
@@ -31,7 +28,7 @@ metacoffee (parser, semantics) ->
       if typeof syntaxTree isnt "string"
         syntaxTree = semantics.analyze sourceCode, syntaxTree
         if program.tree
-          dump syntaxTree
+          log syntaxTree
           console.log "\n"
       else
         console.error syntaxTree
