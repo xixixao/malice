@@ -74,7 +74,6 @@ module.exports = (OMeta, OMLib) -> optimize: (source, ast) ->
 
     Compare :node :pos :type :op trans:e1 trans:e2
       ->  res = Result.maybe node, types.boolean, e1, e2
-          log res
           return res
 
     Arithmetic :node :pos :type :op trans:e1 trans?:e2

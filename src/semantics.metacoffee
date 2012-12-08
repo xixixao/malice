@@ -198,10 +198,10 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
               for arg, i in args
                 checkForTypeError "argument #{i+1}", fun.args()[i].type(), arg, fun.args()[i].type()
           if isStatement
-            concat new Executes('Call', pos, false, isStatement, fun), args
+            concat new Executes('Call', pos, false, fun), args
           else
             type = if validFunction then fun.returnType() else types.error
-            concat new Value('Call', pos, type, isStatement, fun), args
+            concat new Value('Call', pos, type, fun), args
 
     Return :pos trans:value
       ->  currentReturnType = @currentScope.returns()
@@ -331,11 +331,10 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
     copy = new Reference
     for own i, value of node
       copy[i] = value
+    copy[0] = 'Dereference'
     copy.declaredAt = -> node.position()
     copy.position at
-    log node
     if node.returnType?
-      log "referencing function"
       copy.splice(6, 9e99)
     else
       copy.splice(4, 9e99)

@@ -1,0 +1,197 @@
+#
+# translation.metacoffee
+#
+#   Semantic analysis, type and error checking
+#
+
+errorHandler = require './errorprinter'
+{concat, join} = require './metaCoffeeUtils'
+{log} = require './utils'
+{Node, Executes, Value, Reference, FunctionNode,
+ SimpleType, FunctionType, ArrayType, ErrorType, types} = require './nodes'
+
+module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
+
+  ometa MAliceASTOptimizer
+    recurse   :node = (trans |  anything)*:ans -> node[1..] = ans; node
+    trans     :node = transNode(node, node)
+    transNode :node = [:t (!{@[t]?} anything* {node} | prepend([node]) apply(t)):ans] -> ans
+    head = empty {log @input.head()} empty
+
+    Program recurse
+    Function recurse
+    Arguments recurse
+    Argument recurse
+    Block recurse
+    Declarations recurse
+    Assignment recurse
+    Decrement recurse
+    Increment recurse
+    Output recurse
+    Call recurse
+    Return recurse
+    Input recurse
+    If recurse
+    Until recurse
+    Statements recurse
+    Logic recurse
+    Compare recurse
+    Arithmetic recurse
+    Unary recurse
+
+
+  ometa MAliceTranslator extends MAliceASTOptimizer
+
+    Program :node :pos trans:declarations trans:initializations
+      ->  global: concat declarations, initializations
+          stack: concat @functions...
+
+    Function :node :pos :type :name :returnType :args trans:body
+      ->  concat [['Label', name]], body, [['End', name]]
+
+    Block :node :pos :returns trans:declarations trans:statements
+      ->  concat declarations, statements
+
+    Declarations :node :pos trans*:ds
+      ->  for d in ds when !d.simple?
+            @functions.push d
+          d for d in ds when d.simple?
+
+    Variable :node :pos :type :name
+      ->  decl = [['Variable', name, type]]
+          decl.simple = yes
+          decl
+
+    Array :node :pos :type :name trans:size
+      ->  [body, result] = size
+          decl = concat body, [['Array', name, type, result]]
+          decl.simple = yes
+          decl
+
+    Statements :node :pos :returns trans*:ss
+      -> concat ss...
+
+    Skip :node :pos :returns
+      -> []
+
+    Assignment :node :pos :returns trans:assignable trans:value
+      ->  [body, result] = value
+          [_, into] = assignable
+          concat body, [
+            ['Assignment', into, result]
+          ]
+
+    Decrement :node :pos :returns trans:variable
+      ->  ['Decrement', assignable]
+
+    Increment :node :pos :returns trans:variable
+      ->  ['Increment', assignable]
+
+    Output :node :pos :returns trans:value
+      ->  [body, result] = value
+          concat body, [
+            ['Output', result]
+          ]
+
+    Call :node :pos :detail trans:fun trans*:args
+      ->  paramBodies = []
+          paramResults = []
+          for arg in args
+            [body, result] = arg
+            paramBodies = concat paramBodies, body
+            paramResults.push ['Param', result]
+          [_, name] = fun
+          call = concat paramBodies, paramResults
+          if detail is false
+            concat call, [
+              ['Call', name, args.length]
+            ]
+          else
+            [concat(call, [
+              ['CallAssignment', callResult = @newTemp(), name, args.length]
+            ]), callResult]
+
+
+    Return :node :pos :returns trans:value
+      ->  [body, result] = value
+          concat body, [
+             ['Return', result]
+          ]
+
+    Input :node :pos :returns trans:variable
+      ->  [['Read', variable, node[3].type()]]
+
+    If :node :pos :returns trans:cond trans:ifBody trans:elseBody
+      ->  [condbody, condresult] = cond
+          concat condbody, [
+            ['IfFalse', condresult, elseLabel = @newLabel()]
+          ], ifBody, [
+            ['Jump', endLabel = @newLabel()]
+            ['Label', elseLabel]
+          ], elseBody, [
+            ['Label', endLabel]
+          ]
+
+    Until :node :pos :returns trans:cond trans:body
+      ->  [condbody, condresult] = cond
+          concat condbody, [
+            ['Label', whileLabel = @newLabel()]
+            ['IfTrue', condresult, endLabel = @newLabel()]
+          ], body, [
+            ['Jump', whileLabel]
+            ['Label', endLabel]
+          ]
+
+    Logic :node :pos :type :op trans:b1 trans?:b2
+      ->  @translateExpression op, b1, b2
+
+    Compare :node :pos :type :op trans:e1 trans:e2
+      ->  @translateExpression op, e1, e2
+
+    Arithmetic :node :pos :type :op trans:e1 trans?:e2
+      ->  @translateExpression op, e1, e2
+
+    Unary :node :pos :type :op trans:e
+      ->  @translateExpression op, e
+
+    Dereference :node :pos :type :name anything*
+      ->  [[], name]
+
+    Element :node :pos trans:array trans:index
+      ->  [body, result] = index
+          [[], concat body, [
+            ['Element', array, result]
+          ]]
+
+    Value :node :pos :type :v
+      -> [[], v]
+
+    Number :node :pos :type :n
+      ->  [[], n]
+
+    Letter :node :pos :type :ch
+      ->  [[], ch]
+
+    Sentence :node :pos :type :string
+      ->  [[], string]
+
+    initialize
+      ->  @labelCounter = 0
+          @tempCounter = 0
+          @functions = []
+
+  MAliceTranslator::translateExpression = (op, e1, e2) ->
+    [e1body, e1result] = e1
+    [e2body, e2result] = e2 if e2?
+    result = @newTemp()
+    [concat(e1body, e2body ? [], [
+      ['ImmAssignment', result, op, e1result, e2result]
+    ]), result]
+
+  MAliceTranslator::newLabel = ->
+    "L" + @labelCounter++
+
+  MAliceTranslator::newTemp = ->
+    "t" + @tempCounter++
+
+  MAliceTranslator.match ast, "trans", undefined, (m, i) -> console.error "ERROR while traversing AST in translator"

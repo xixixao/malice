@@ -71,11 +71,11 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     argDeclaration   = eType:t identifier:n                           -> ['Argument', at, n, t]
     block            = "opened"
                        (declarations:ds statements:ss)? "closed"      -> [dds, sss] = ds; ['Block', at, dds, concat(sss, [ss ? ['Skip']])]
-    declarations     = {@initializations = []} declaration*:ds        -> [concat(['Declarations', at], ds), concat(['Statements', at], @initializations)]
-    declaration      = function
-                     | variable:v terminator                          -> v
-    variable         = identifier:i "was a" type:t
-                       ("of" expression:e                             -> @initializations.push ['Assignment', at, ['Dereference', at, i], e]
+    declarations     = array:inits declaration(inits)*:ds             -> [concat(['Declarations', at], ds), concat(['Statements', at], inits)]
+    declaration :inits  = function
+                        | variable(inits):v terminator                -> v
+    variable :inits  = identifier:i "was a" type:t
+                       ("of" expression:e                             -> inits.push ['Assignment', at, ['Dereference', at, i], e]
                         | "too")?                                     -> ['Variable', at, i, t]
                      | identifier:i "had" expression:n type:t         -> ['Array', at, i, n, t]
     statements       = statement+:ss                                  -> concat ['Statements', at], ss
@@ -146,6 +146,7 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     token :s         = spaced(s):ts (!letter(s[-1..]) | !letter)      -> ts.join ' '
     spaced :s                                                         -> for word in s.split ' '
                                                                             MAlice.__super__.token.call(this, word)
+    array            = empty -> []
     initialize       -> @keywords = getKeywords @usedTokens
 
   formatError = (interpreter, position) ->

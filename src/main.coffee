@@ -16,7 +16,7 @@ command
 
 # Compile files
 metacoffee = require './loadMetaCoffee'
-metacoffee (parser, semantics, staticoptimization) ->
+metacoffee (parser, semantics, staticoptimization, translation) ->
   for file in command.args
     try
       sourceCode = fs.readFileSync file, 'utf8'
@@ -26,16 +26,12 @@ metacoffee (parser, semantics, staticoptimization) ->
       console.log "\nCompiling file '#{clc.greenBright file}'\n"
       syntaxTree = parser.parse sourceCode
       if typeof syntaxTree isnt "string"
-        if command.tree
-          log syntaxTree
-          console.log "\n"
-          console.log "Parsing over"
         syntaxTree = semantics.analyze sourceCode, syntaxTree
+        syntaxTree = staticoptimization.optimize sourceCode, syntaxTree
         if command.tree
           log syntaxTree
           console.log "\n"
-          console.log "Semantics over"
-        syntaxTree = staticoptimization.optimize sourceCode, syntaxTree
+        syntaxTree = translation.translate sourceCode, syntaxTree
         if command.tree
           log syntaxTree
           console.log "\n"

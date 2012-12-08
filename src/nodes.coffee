@@ -63,7 +63,7 @@ class SimpleType extends Type
 
 class FunctionType extends Type
   constructor: ->
-    node = super undefined, "function"
+    node = super 'FunctionType', undefined, "function"
     node.isDynamic = no
     return node
 
