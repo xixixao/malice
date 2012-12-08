@@ -1,0 +1,131 @@
+#
+# staticoptimization.metacoffee
+#
+#   Semantic analysis, type and error checking
+#
+
+errorHandler = require './errorprinter'
+{concat, join} = require './metaCoffeeUtils'
+{log} = require './utils'
+{Node, Executes, Value, Reference, FunctionNode,
+ SimpleType, FunctionType, ArrayType, ErrorType, types} = require './nodes'
+
+module.exports = (OMeta, OMLib) -> optimize: (source, ast) ->
+
+  ometa MAliceASTOptimizer
+    recurse   :node = (trans |  anything)*:ans -> node[1..] = ans; node
+    trans     :node = transNode(node, node)
+    transNode :node = [:t (!{@[t]?} anything* {node} | prepend([node]) apply(t)):ans] -> ans
+
+    Program recurse
+    Function recurse
+    Arguments recurse
+    Argument recurse
+    Block recurse
+    Declarations recurse
+    Assignment recurse
+    Decrement recurse
+    Increment recurse
+    Output recurse
+    Call recurse
+    Return recurse
+    Input recurse
+    If recurse
+    Until recurse
+    Statements recurse
+    Logic recurse
+    Compare recurse
+    Arithmetic recurse
+    Unary recurse
+
+
+  ometa MAliceStaticOptimizer extends MAliceASTOptimizer
+
+    Skip :node :pos :returns
+      -> node
+
+    If :node  :pos :returns trans:cond trans:ifReturns trans:elseReturns
+      ->  if cond.constant? and cond.value()
+            ifReturns
+          else if cond.constant? and !cond.value()
+            elseReturns
+          else
+            new Executes 'If', pos, returns, cond, ifReturns, elseReturns
+
+    Until :node :pos :returns trans:cond trans:body
+      ->  if cond.constant? and cond.value() or body.empty?
+            new Executes 'Skip'
+          else if cond.constant? and !cond.value() and !body.empty?
+            # issue infinite looop warning
+          else
+            new Executes 'Until', pos, returns, cond, body
+
+    Statements :node :pos :returns trans*:ss
+      ->  reachable = []
+          for statement in ss
+            reachable.push statement
+            break if statement.doesReturn()
+          concat new Executes('Statements', pos, returns), reachable
+
+    Logic :node :pos :type '!' ['Logic' :bp :bt '!' trans:bb]
+      ->  bb
+    Logic :node :pos :type :op trans:b1 trans?:b2
+      ->  Result.maybe node, types.boolean, b1, b2
+
+    Compare :node :pos :type :op trans:e1 trans:e2
+      ->  res = Result.maybe node, types.boolean, e1, e2
+          log res
+          return res
+
+    Arithmetic :node :pos :type :op trans:e1 trans?:e2
+      ->  Result.maybe node, e1.type(), e1, e2
+
+    Unary :node :pos :type '+' trans:e
+      ->  e
+    Unary :node :pos :type '-' ['Unary' :ep :et '-' trans:ee]
+      ->  ee
+    Unary :node :pos :type '~' ['Unary' :ep :et '~' trans:ee]
+      ->  ee
+    Unary :node :pos :type :op trans:e
+      ->  if e.constant?
+            new Result node, evaluate op, e
+          else
+            node
+
+    Number :node :pos :type :n
+      ->  new Result node, parseInt n
+
+    Letter :node :pos :type :ch
+      ->  new Result node, ch.charCodeAt(0)
+
+    Sentence :node :pos :type :string
+      ->  node
+
+  class Result extends Value
+    constructor: (node, value) ->
+      node = Value.wrap super(node...), value: 3
+      node.constant = true
+      return node.value value
+
+    @maybe = (node, type, e1, e2) ->
+      if e1.constant and (!e2? or e2.constant)
+        new Result ['Value', node.position(), type], evaluate node[3], e1, e2
+      else
+        node
+
+  class Empty
+    constructor: (@node) ->
+      @empty = true
+
+  evaluate = (op, r1, r2) ->
+    v1 = r1.value()
+    v2 = r2?.value()
+    switch op
+      when '/' then Math.floor v1 / v2
+      else 
+        if v2?
+          eval "#{v1.toString()} #{op} #{v2.toString()}"
+        else
+          eval "#{op}#{v1.toString()}"
+
+  MAliceStaticOptimizer.match ast, "trans", undefined, (m, i) -> console.error "ERROR while traversing AST in static optimizer"

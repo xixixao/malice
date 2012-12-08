@@ -60,7 +60,7 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
   #   is derived, to ignore MAlice comments.
   #
   ometa MAlice
-    program          = declarations:ds spaces end                     -> ['Program', at, ds]
+    program          = declarations:ds spaces end                     -> concat ['Program', at], ds
     function         = (valueFunction | voidFunction):d               -> concat ['Function', at], d
     valueFunction    = "The room"          identifier:i args:as
                        "contained a" type:returnType
@@ -70,12 +70,13 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     args             = "(" listOf('argDeclaration', ','):as ")"       -> concat ['Arguments', at], as
     argDeclaration   = eType:t identifier:n                           -> ['Argument', at, n, t]
     block            = "opened"
-                       (declarations:ds statements:ss)? "closed"      -> ['Block', at, ds, ss ? ['Skip']]
-    declarations     = declaration*:ds                                -> concat ['Declarations', at], ds
+                       (declarations:ds statements:ss)? "closed"      -> [dds, sss] = ds; ['Block', at, dds, concat(sss, [ss ? ['Skip']])]
+    declarations     = {@initializations = []} declaration*:ds        -> [concat(['Declarations', at], ds), concat(['Statements', at], @initializations)]
     declaration      = function
                      | variable:v terminator                          -> v
     variable         = identifier:i "was a" type:t
-                       (("of" expression:e) | "too")?                 -> ['Variable', at, i, t, e ? ['Skip']]
+                       ("of" expression:e                             -> @initializations.push ['Assignment', at, ['Dereference', at, i], e]
+                        | "too")?                                     -> ['Variable', at, i, t]
                      | identifier:i "had" expression:n type:t         -> ['Array', at, i, n, t]
     statements       = statement+:ss                                  -> concat ['Statements', at], ss
     statement        = (assignment | saying | call):s terminator      -> s

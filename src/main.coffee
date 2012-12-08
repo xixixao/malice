@@ -1,6 +1,6 @@
 # Module dependencies.
 fs         = require 'fs'
-program    = require 'commander'
+command    = require 'commander'
 clc        = require 'cli-color'
 {log}      = require './utils'
 
@@ -8,7 +8,7 @@ clc        = require 'cli-color'
 require './colorConsole'
 
 # Command options
-program
+command
   .version('MAlice Compiler in CofeeScript and MetaCoffee, version 0.0.1')
   .usage('[options] <file ...>')
   .option('-t, --tree', 'print out syntax tree')
@@ -16,8 +16,8 @@ program
 
 # Compile files
 metacoffee = require './loadMetaCoffee'
-metacoffee (parser, semantics) ->
-  for file in program.args
+metacoffee (parser, semantics, staticoptimization) ->
+  for file in command.args
     try
       sourceCode = fs.readFileSync file, 'utf8'
     catch e
@@ -26,8 +26,17 @@ metacoffee (parser, semantics) ->
       console.log "\nCompiling file '#{clc.greenBright file}'\n"
       syntaxTree = parser.parse sourceCode
       if typeof syntaxTree isnt "string"
+        if command.tree
+          log syntaxTree
+          console.log "\n"
+          console.log "Parsing over"
         syntaxTree = semantics.analyze sourceCode, syntaxTree
-        if program.tree
+        if command.tree
+          log syntaxTree
+          console.log "\n"
+          console.log "Semantics over"
+        syntaxTree = staticoptimization.optimize sourceCode, syntaxTree
+        if command.tree
           log syntaxTree
           console.log "\n"
       else

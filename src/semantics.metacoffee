@@ -5,8 +5,10 @@
 #
 
 errorHandler = require './errorprinter'
-{concat, join} = require './metaCoffeeUtils'
+{concat, join, ObjectifiedArray} = require './metaCoffeeUtils'
 {log} = require './utils'
+{Node, Executes, Value, Reference, FunctionNode,
+ SimpleType, FunctionType, ArrayType, ErrorType, types} = require './nodes'
 
 module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
 
@@ -116,7 +118,7 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
   ometa MAliceSemantics
     trans = [:t apply(t):ans] -> ans
 
-    Program :pos createScope:scope trans:declarations
+    Program :pos createScope:scope trans:declarations trans:initializations
       ->  hatta = scope.get 'hatta'
           if not hatta?
             error "The main function named 'hatta' was not declared."
@@ -125,7 +127,7 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
           else if not hatta.returnType().equals types.void
             error "The main function named 'hatta' cannot return a value. " +
                   "Instead, 'hatta' was declared to return '#{hatta.returnType()}'", hatta.returnType()
-          new Node 'Program', pos, declarations
+          new Node 'Program', pos, declarations, initializations
 
     Function :pos :name trans:returnType trans:args  {
         @prepareScope = [args, returnType]
@@ -143,14 +145,23 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
       ->  new Executes 'Block', pos, (statements.doesReturn()), declarations, statements
 
     Declarations :pos trans*:ds
-      ->  new Node 'Declarations', pos, ds
+      ->  concat new Node('Declarations', pos), ds
 
-    Variable :pos :name trans:type trans:value
-      ->  @declare new Reference 'Variable', pos, type, name, value
+    Variable :pos :name trans:type
+      ->  @declare new Reference 'Variable', pos, type, name
 
     Array :pos :name trans:size trans:itemType
       ->  checkForTypeError "specifying array size", types.number, size
           @declare new Reference 'Array', pos, new ArrayType(pos, itemType), name, size
+
+    Spider :pos trans:itemType
+      ->  new ArrayType pos, itemType
+
+    Type :pos :label
+      ->  new SimpleType pos, label
+
+    Statements :pos trans*:ss
+      -> concat new Executes('Statements', pos, (ss.some (statement) -> statement.doesReturn())), ss
 
     Skip
       -> new Executes 'Skip', undefined, false
@@ -159,7 +170,8 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
       ->  if not assignable.type().isDynamic
             error "Variable of type '#{assignable.type()}' cannot be assigned to", assignable
           else if not assignable.type().equals value.type()
-            error "Type clash in assignment, variable is a '#{assignable.type()}', value is a '#{value.type()}'", value
+            # TODO: fix message to include detail and fix was of location
+            error "Type clash in assignment, variable is a '#{assignable.type()}', value is a '#{value.type()}'", value, assignable
           new Executes 'Assignment', pos, false, assignable, value
 
     Decrement :pos trans:variable
@@ -211,15 +223,6 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
       ->  checkForTypeError "loop condition", types.boolean, cond
           new Executes 'Until', pos, false, cond, body
 
-    Statements :pos trans*:ss
-      -> concat new Executes('Statements', pos, (ss.some (statement) -> statement.doesReturn())), ss
-
-    Spider :pos trans:itemType
-      ->  new ArrayType pos, itemType
-
-    Type :pos :label
-      ->  new SimpleType pos, label
-
     Logic :pos :op trans:b1 trans?:b2
       ->  for operand in [b1, b2] when operand?
             checkForTypeError "operand of #{op}", types.boolean, operand
@@ -239,7 +242,7 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
           if not errorType? and not e1.type().equals e2.type()
             error "Type clash for '#{op}', operands must match, got '#{e1.type()}' and '#{e2.type()}'", pos
             errorType = types.error
-          new Value 'Compare', pos, errorType ? e1.type(), op, e1, e2
+          new Value 'Arithmetic', pos, errorType ? e1.type(), op, e1, e2
 
     Unary :pos :op trans:e
       ->  checkForTypeError "operand of '#{op}'", types.number, e
@@ -248,7 +251,7 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
     Dereference :pos :name
       ->  reference = @currentScope.get name
           if reference?
-            Reference.from reference, pos
+            dereference reference, pos
           else
             error "'#{name}' has not been declared", pos
             new Reference 'Dereference', pos, types.error, name
@@ -324,110 +327,19 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
   # Nodes
   # -----
 
-  # Node is [node, position, ...]
-  class Node
-    @wrap = (node, methods) ->
-      for name, index of methods
-        do (index) ->
-          node[name] = (value) ->
-            if value?
-              @[index] = value
-              this
-            else
-              @[index]
-      node
-    constructor: ->
-      node =  Array.apply (new Array), arguments
-      return Node.wrap node, position: 1
-
-  # Executes is [node, position, returns, ...]
-  class Executes extends Node
-    constructor: ->
-      return Node.wrap super, doesReturn: 2
-
-  # Value is [node, position, type, ...]
-  class Value extends Node
-    constructor: ->
-      return Node.wrap super, type: 2
-
-  # Reference is [node, position, type, name, ...]
-  class Reference extends Value
-    constructor: ->
-      return Node.wrap super, name: 3
-    @from: (node, at) ->
-      copy = new Reference
-      for own i, value of node
-        copy[i] = value
-      copy.declaredAt = -> node.position()
-      copy.position at
-      copy
-
-  # FunctionNode is [node, position, type, name, returnType, ...]
-  class FunctionNode extends Reference
-    constructor: ->
-      return Node.wrap super, returnType: 4, args: 5
-
-  # Types
-  # -----
-
-  # Type is [node, position, ...]
-  class Type extends Node
-    constructor: ->
-      node = Node.wrap super, label: 2
-      node.isDynamic = true
-      node.equals = Type::equals
-      node.equalsAny = Type::equalsAny
-      return node
-    equals: (t) ->
-      @label() is t.label() or t.isError
-    equalsAny: (ts) ->
-      ts.some (t) ->
-        @equals t
-      , this
-
-  # SimpleType is [node, position, label, ...]
-  class SimpleType extends Type
-    constructor: (values...)->
-      values.unshift 'Type'
-      node = Node.wrap super(values...), toString: 2
-      return node
-
-  class FunctionType extends Type
-    constructor: ->
-      node = super undefined, "function"
-      node.isDynamic = no
-      return node
-
-  # ArrayType is [node, position, itemType, ...]
-  class ArrayType extends Type
-    constructor: (values...) ->
-      values.unshift 'ArrayType'
-      node = Node.wrap super(values...), itemType: 2
-      node.isArray = yes
-      node.isDynamic = no
-      node.equals = ArrayType::equals
-      node.toString = -> "spider #{@itemType()}"
-      return node
-    equals: (t) ->
-      t.isArray and @itemType().equals t.itemType()
-
-  class ErrorType extends Type
-    constructor: ->
-      @isError = yes
-      @isDynamic = yes
-    equals: (t) ->
-      yes
-    toString: ->
-      "error"
-
-  types =
-    number: new SimpleType undefined, "number"
-    letter: new SimpleType undefined, "letter"
-    sentence: new SimpleType undefined, "sentence"
-    boolean: new SimpleType undefined, "boolean"
-    function: new FunctionType
-    void: new SimpleType undefined, "void"
-    error: new ErrorType
+  dereference = (node, at) ->
+    copy = new Reference
+    for own i, value of node
+      copy[i] = value
+    copy.declaredAt = -> node.position()
+    copy.position at
+    log node
+    if node.returnType?
+      log "referencing function"
+      copy.splice(6, 9e99)
+    else
+      copy.splice(4, 9e99)
+    copy
 
   dynamicTypes = [types.number, types.letter, types.sentence]
   arithmeticTypes = [types.number, types.letter]
