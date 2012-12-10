@@ -53,6 +53,15 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
     Skip :node :pos :returns
       -> []
 
+    Assignment :node :pos :returns ['Element' :elempos
+                          :type trans:array trans:index] trans:value
+      ->  [indexbody, indexresult] = index
+          [arraybody, arrayresult] = array
+          [body, result] = value
+          concat body, arraybody, indexbody, [
+            ['ArrayAssignment', arrayresult, indexresult, result]
+          ]
+
     Assignment :node :pos :returns trans:assignable trans:value
       ->  [body, result] = value
           [_, into] = assignable
