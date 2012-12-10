@@ -16,6 +16,7 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
     trans     :node = transNode(node, node)
     transNode :node = [:t (!{@[t]?} anything* {node} | prepend([node]) apply(t)):ans] -> ans
     head = empty {log @input.head()} empty
+         | {log "There's nothing here"} empty
 
     Program :node :pos trans:declarations trans:initializations
       ->  global: concat declarations, initializations
@@ -52,6 +53,15 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
     Skip :node :pos :returns
       -> []
 
+    Assignment :node :pos :returns ['Element' :elempos
+                          :type trans:array trans:index] trans:value
+      ->  [indexbody, indexresult] = index
+          [arraybody, arrayresult] = array
+          [body, result] = value
+          concat body, arraybody, indexbody, [
+            ['ArrayAssignment', arrayresult, indexresult, result]
+          ]
+
     Assignment :node :pos :returns trans:assignable trans:value
       ->  [body, result] = value
           [_, into] = assignable
@@ -70,7 +80,7 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
     Output :node :pos :returns trans:value
       ->  [body, result] = value
           concat body, [
-            ['Output', result]
+            ['Output', result, node[3].type()]
           ]
 
     Call :node :pos :detail trans:fun trans*:args
@@ -140,8 +150,9 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
     Element :node :pos :type trans:array trans:index
       ->  [indexbody, indexresult] = index
           [arraybody, arrayresult] = array
-          [concat(indexbody, arraybody),
-            ['Element', arrayresult, indexresult]]
+          [concat(indexbody, arraybody,
+            [['ArrayAccess', temp = @newTemp(), arrayresult, indexresult]]
+          ), temp]
 
     Value :node :pos :type :v
       ->  @translateValue v
@@ -165,7 +176,7 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
     [e2body, e2result] = e2 if e2?
     result = @newTemp()
     [concat(e1body, e2body ? [], [
-      ['ImmAssignment', result, op, e1result, e2result]
+      concat ['ImmAssignment', result, op, e1result], if e2? then [e2result] else []
     ]), result]
 
   MAliceTranslator::translateValue = (v) ->

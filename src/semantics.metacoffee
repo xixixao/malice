@@ -226,7 +226,10 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
     Logic :pos :op trans:b1 trans?:b2
       ->  for operand in [b1, b2] when operand?
             checkForTypeError "operand of #{op}", types.boolean, operand
-          new Value 'Logic', pos, types.boolean, op, b1, b2
+          if b2?
+            new Value 'Logic', pos, types.boolean, op, b1, b2
+          else
+            new Value 'Logic', pos, types.boolean, op, b1
 
     Compare :pos :op trans:e1 trans:e2
       ->  for operand in [e1, e2]
