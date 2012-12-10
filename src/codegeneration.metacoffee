@@ -21,7 +21,7 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
   ometa MAliceCodeGeneration
 
     trans = [:t apply(t):ans] -> ans
-    list = trans*
+    list = trans*:result end -> result
 
     Label :name
       -> ["#{name}:"]
@@ -39,10 +39,14 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
           "\tjne #{jumpto}"]
     Jump :to
       -> ["\tjmp #{to}"]
+    Param :name
+      -> ["\tpush #{@registerForVariable name}"]
     Argument :name :type
       -> [""]
-    Element :ofArray :i
-      -> [""]
+    ArrayAccess :into :array :i
+      -> ["\tmov #{@registerForVariable into}, [#{@registerForVariable array} + #{i}]"]
+    ArrayAssignment :array :i :value
+      -> ["\tmov [#{@registerForVariable array}+#{i}], #{@registerForVariable value}"]
     Decrement :variable
       -> ["\tdec #{@registerForVariable variable}"]
     Increment :variable
@@ -56,13 +60,14 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
       -> ["\tcall #{name}",
           "\tadd rsp, #{4 * argumentCount}",
           "\tmov #{@registerForVariable into}, eax"]
-    ImmAssignment :into :operator :e1 :e2
+    ImmAssignment :into :operator :e1 anything?:e2
       -> [""]
     Return :result
       -> ["\tmov eax, #{@registerForVariable result}",
           "\tret"]
-    Output :value
-      -> [""]
+    Output :value :type
+      -> ["\tpush #{@registerForVariable value}",
+          "\tcall printf"]
     Read :into :type
       -> [""]
 
@@ -76,5 +81,5 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
       @variables[variable] = registers[@registerCounter++]
     @variables[variable]
 
-  global = MAliceCodeGeneration.matchAll ast.global, "list", undefined, (m, i) -> console.error "ERROR while traversing AST in code generation"
-  concat global, MAliceCodeGeneration.matchAll ast.stack, "list", undefined, (m, i) -> console.error "ERROR while traversing AST in code generation"
+    #global = MAliceCodeGeneration.matchAll ast.global, "list", undefined, (m, i) -> console.error "ERROR while traversing AST in code generation"
+  MAliceCodeGeneration.matchAll ast.stack, "list", undefined, (m, i) -> console.error "ERROR while traversing AST in code generation"
