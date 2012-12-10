@@ -56,6 +56,8 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
           "\tadd rsp, #{4 * argumentCount}"]
     Assignment :into :from
       -> ["\tmov #{@registerForVariable into}, #{@registerForVariable from}"]
+    ValAssignment :into :value :type
+      -> ["\tmov #{@registerForVariable into}, #{value}"]
     CallAssignment :into :name :argumentCount
       -> ["\tcall #{name}",
           "\tadd rsp, #{4 * argumentCount}",
