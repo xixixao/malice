@@ -1,0 +1,101 @@
+errorHandler = require './errorprinter'
+{concat, join} = require './metaCoffeeUtils'
+{log} = require './utils'
+
+module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
+
+  stack = addresscode.stack
+
+  getNextInstruction = (from, at) ->
+    loop
+      next = from[++at]
+      return [] if not next?
+      return [next] if next[0] isnt "Label"
+
+  # Generate firstAfter, the map from labels to first instructions following them
+  # and initialize instruction properties
+  firstAfter = {}
+  for instruction, i in stack
+    [type, label] = instruction
+    next = getNextInstruction(stack, i)
+    if type is "Label"
+      firstAfter[label] = next[0]
+    else
+      instruction.next = next
+      instruction.using = []
+      instruction.defines = []
+      instruction.livein = []
+      instruction.liveout = []
+
+  ometa MAliceCodeGeneration
+
+    list        = trans*
+    trans :node = visit(node, node)
+    visit :node = [:t prepend([node]) apply(t)] -> node
+
+    Label :node :name
+
+    End :node :name
+
+    IfFalse :node :condition :jumpto if(node, condition, jumpto)
+    IfTrue :node :condition :jumpto if(node, condition, jumpto)
+
+    if :node :condition :jumpto
+      ->  node.next.push firstAfter[jumpto]
+          node.using.push condition
+
+    Jump :node :to
+      ->  node.next = [firstAfter[to]]
+
+    Argument :node :name :type declaration(node, name, type)
+    Variable :node :name :type declaration(node, name, type)
+    Array :node :name :type :size declaration(node, name, type)
+
+    declaration :node :name :type
+      ->  node.defines.push name
+
+    ArrayAccess :node :into :array :index assignment(node, into, array)
+      ->  node.using.push index
+
+    Decrement :node :variable assignment(node, variable, variable)
+    Increment :node :variable assignment(node, variable, variable)
+
+    Call :node :name :argumentCount
+
+    Assignment :node :into :from assignment(node, into, from)
+
+    ValAssignment :node :into :value :type
+      -> node.defines.push into
+
+    Param :node :value
+      ->  node.using.push value
+
+    CallAssignment :node :into :name :argumentCount
+      ->  node.defines.push into
+
+    ImmAssignment :node :into :operator :e1 anything?:e2
+      -> node.defines.push into
+         node.using.push e1
+         node.using.push e2 if e2?
+
+    ArrayAssignment :node :array :index :value
+      ->  node.using.push array, index, value
+
+    assignment :node :into :from
+      ->  node.defines.push into
+          node.using.push from
+
+    Return :node :result
+      ->  node.using.push result
+
+    Output :node :value :type
+      ->  node.using.push value
+
+    Read :node :into :type
+      ->  node.defines.push into
+
+
+
+  #global = MAliceCodeGeneration.matchAll addresscode.global, "list", undefined, (m, i) -> console.error "ERROR while traversing AST in code generation"
+  #concat global, 
+  MAliceCodeGeneration.matchAll addresscode.stack, "list", undefined, (m, i) -> console.error "ERROR while traversing AST in code generation"
