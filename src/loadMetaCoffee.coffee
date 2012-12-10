@@ -4,6 +4,7 @@ parser     = require './parser'
 semantics  = require './semantics'
 staticopt  = require './staticoptimization'
 translate  = require './translation'
+codegen    = require './codegeneration'
 
 module.exports = (callback) ->
 
@@ -13,4 +14,5 @@ module.exports = (callback) ->
     semantics = semantics ometa.OMeta, ometa.OMLib
     staticopt = staticopt ometa.OMeta, ometa.OMLib
     translate = translate ometa.OMeta, ometa.OMLib
-    callback(parser, semantics, staticopt, translate)
+    codegen = codegen ometa.OMeta, ometa.OMLib
+    callback(parser, semantics, staticopt, translate, codegen)
