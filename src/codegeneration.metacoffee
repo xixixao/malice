@@ -12,34 +12,40 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
       -> ["#{name}:"]
     End :name
       -> [""]
+    Variable :name :type
+      -> [""]
+    Array :name :type :size
+      -> [""]
     IfFalse :condition :jumpto
-      -> [""]
+      -> ["\tcmp #{condition}, 0",
+          "je #{jumpto}"]
     IfTrue :condition :jumpto
-      -> [""]
+      -> ["\tcmp #{condition}, 0",
+          "\tjne #{jumpto}"]
     Jump :to
       -> ["\tjmp #{to}"]
     Argument :name :type
       -> [""]
-    Variable :name :type
-      -> [""]
-    Array :name :type
-      -> [""]
     Element :ofArray :i
       -> [""]
     Decrement :variable
-      -> [""]
+      -> ["\tdec #{variable}"]
     Increment :variable
-      -> [""]
+      -> ["\tinc #{variable}"]
     Call :name :argumentCount
-      -> [""]
+      -> ["\tcall #{name}",
+          "\tadd rsp, #{4 * argumentCount}"]
     Assignment :into :from
-      -> [""]
+      -> ["\tmov #{into}, #{from}"]
     CallAssignment :into :name :argumentCount
-      -> [""]
+      -> ["\tcall #{name}",
+          "\tadd rsp, #{4 * argumentCount}",
+          "\tmov #{into}, eax"]
     ImmAssignment :into :operator :e1 :e2
       -> [""]
     Return :result
-      -> [""]
+      -> ["\tmov eax, #{result}",
+          "\tret"]
     Output :value
       -> [""]
     Read :into :type
