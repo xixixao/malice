@@ -1,0 +1,50 @@
+errorHandler = require './errorprinter'
+{concat} = require './metaCoffeeUtils'
+
+module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
+
+  ometa MAliceCodeGeneration
+
+    trans = [:t apply(t):ans] -> ans
+    list = trans*
+
+    Label :name
+      -> ["#{name}:"]
+    End :name
+      -> [""]
+    IfFalse :condition :jumpto
+      -> [""]
+    IfTrue :condition :jumpto
+      -> [""]
+    Jump :to
+      -> ["\tjmp #{to}"]
+    Argument :name :type
+      -> [""]
+    Variable :name :type
+      -> [""]
+    Array :name :type
+      -> [""]
+    Element :ofArray :i
+      -> [""]
+    Decrement :variable
+      -> [""]
+    Increment :variable
+      -> [""]
+    Call :name :argumentCount
+      -> [""]
+    Assignment :into :from
+      -> [""]
+    CallAssignment :into :name :argumentCount
+      -> [""]
+    ImmAssignment :into :operator :e1 :e2
+      -> [""]
+    Return :result
+      -> [""]
+    Output :value
+      -> [""]
+    Read :into :type
+      -> [""]
+
+
+  global = MAliceCodeGeneration.matchAll ast.global, "list", undefined, (m, i) -> console.error "ERROR while traversing AST in code generation"
+  concat global, MAliceCodeGeneration.matchAll ast.stack, "list", undefined, (m, i) -> console.error "ERROR while traversing AST in code generation"
