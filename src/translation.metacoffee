@@ -151,7 +151,7 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
       ->  [indexbody, indexresult] = index
           [arraybody, arrayresult] = array
           [concat(indexbody, arraybody,
-            [['ArrayAccess', arrayresult, indexresult, temp = @newTemp()]]
+            [['ArrayAccess', temp = @newTemp(), arrayresult, indexresult]]
           ), temp]
 
     Value :node :pos :type :v
