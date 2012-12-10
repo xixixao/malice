@@ -155,16 +155,16 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
           ), temp]
 
     Value :node :pos :type :v
-      ->  @translateValue v
+      ->  @translateValue v, type
 
     Number :node :pos :type :n
-      ->  @translateValue n
+      ->  @translateValue n, type
 
     Letter :node :pos :type :ch
-      ->  @translateValue ch
+      ->  @translateValue ch, type
 
     Sentence :node :pos :type :string
-      ->  @translateValue string
+      ->  @translateValue string, type
 
     initialize
       ->  @labelCounter = 0
@@ -179,8 +179,8 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
       concat ['ImmAssignment', result, op, e1result], if e2? then [e2result] else []
     ]), result]
 
-  MAliceTranslator::translateValue = (v) ->
-    [[['Assignment', temp = @newTemp(), v]], temp]
+  MAliceTranslator::translateValue = (v, type) ->
+    [[['ValAssignment', temp = @newTemp(), v, type]], temp]
 
   MAliceTranslator::newLabel = ->
     "L" + @labelCounter++
