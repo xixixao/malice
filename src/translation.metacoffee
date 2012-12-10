@@ -60,10 +60,12 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
           ]
 
     Decrement :node :pos :returns trans:variable
-      ->  ['Decrement', assignable]
+      ->  [_, into] = variable
+          [['Decrement', into]]
 
     Increment :node :pos :returns trans:variable
-      ->  ['Increment', assignable]
+      ->  [_, into] = variable
+          [['Increment', into]]
 
     Output :node :pos :returns trans:value
       ->  [body, result] = value
