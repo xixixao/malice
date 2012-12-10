@@ -1,0 +1,31 @@
+errorHandler = require './errorprinter'
+
+module.exports = (Ometa, OMLib) -> analyze: (source, ast) ->
+
+  ometa MAliceCodeGeneration
+
+    trans = [:t apply(t):ans] -> ans
+    list = trans*
+
+    Label :name
+    End :name
+    IfFalse :condition :jumpto
+    IfTrue :condition :jumpto
+    Jump :to
+    Argument :name :type
+    Variable :name :type
+    Array :name :type
+    Element :of :i
+    Decrement :variable
+    Increment :variable
+    Call :name :argumentCount
+    Assignment :into :from
+    CallAssignment :into :name :argumentCount
+    ImmAssignment :into :operator :e1 :e2
+    Return :result
+    Output :value
+    Read :into :type
+
+
+  MAliceCodeGeneration.match ast.global, "list", undefined, (m, i) -> console.error "ERROR while traversing AST in code generation"
+  MAliceCodeGeneration.match ast.stack, "list", undefined, (m, i) -> console.error "ERROR while traversing AST in code generation"
