@@ -27,7 +27,7 @@ metacoffee (parser, semantics, staticoptimization, translation) ->
       syntaxTree = parser.parse sourceCode
       if typeof syntaxTree isnt "string"
         syntaxTree = semantics.analyze sourceCode, syntaxTree
-        syntaxTree = staticoptimization.optimize sourceCode, syntaxTree
+        #syntaxTree = staticoptimization.optimize sourceCode, syntaxTree
         if command.tree
           log syntaxTree
           console.log "\n"

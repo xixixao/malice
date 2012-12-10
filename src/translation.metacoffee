@@ -1,7 +1,7 @@
 #
 # translation.metacoffee
 #
-#   Semantic analysis, type and error checking
+#   Translates annotated AST into Three Address Code
 #
 
 errorHandler = require './errorprinter'
@@ -12,42 +12,20 @@ errorHandler = require './errorprinter'
 
 module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
 
-  ometa MAliceASTOptimizer
-    recurse   :node = (trans |  anything)*:ans -> node[1..] = ans; node
+  ometa MAliceTranslator
     trans     :node = transNode(node, node)
     transNode :node = [:t (!{@[t]?} anything* {node} | prepend([node]) apply(t)):ans] -> ans
     head = empty {log @input.head()} empty
-
-    Program recurse
-    Function recurse
-    Arguments recurse
-    Argument recurse
-    Block recurse
-    Declarations recurse
-    Assignment recurse
-    Decrement recurse
-    Increment recurse
-    Output recurse
-    Call recurse
-    Return recurse
-    Input recurse
-    If recurse
-    Until recurse
-    Statements recurse
-    Logic recurse
-    Compare recurse
-    Arithmetic recurse
-    Unary recurse
-
-
-  ometa MAliceTranslator extends MAliceASTOptimizer
 
     Program :node :pos trans:declarations trans:initializations
       ->  global: concat declarations, initializations
           stack: concat @functions...
 
-    Function :node :pos :type :name :returnType :args trans:body
-      ->  concat [['Label', name]], body, [['End', name]]
+    Function :node :pos :type :name :returnType [trans*:args] trans:body
+      ->  concat [['Label', name]], args, body, [['End', name]]
+
+    Argument :node :pos :type :name
+      ->  ['Argument', name, type]
 
     Block :node :pos :returns trans:declarations trans:statements
       ->  concat declarations, statements
@@ -55,7 +33,7 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
     Declarations :node :pos trans*:ds
       ->  for d in ds when !d.simple?
             @functions.push d
-          d for d in ds when d.simple?
+          d[0] for d in ds when d.simple?
 
     Variable :node :pos :type :name
       ->  decl = [['Variable', name, type]]
@@ -157,23 +135,23 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
     Dereference :node :pos :type :name anything*
       ->  [[], name]
 
-    Element :node :pos trans:array trans:index
-      ->  [body, result] = index
-          [[], concat body, [
-            ['Element', array, result]
-          ]]
+    Element :node :pos :type trans:array trans:index
+      ->  [indexbody, indexresult] = index
+          [arraybody, arrayresult] = array
+          [concat(indexbody, arraybody),
+            ['Element', arrayresult, indexresult]]
 
     Value :node :pos :type :v
-      -> [[], v]
+      ->  @translateValue v
 
     Number :node :pos :type :n
-      ->  [[], n]
+      ->  @translateValue n
 
     Letter :node :pos :type :ch
-      ->  [[], ch]
+      ->  @translateValue ch
 
     Sentence :node :pos :type :string
-      ->  [[], string]
+      ->  @translateValue string
 
     initialize
       ->  @labelCounter = 0
@@ -187,6 +165,9 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
     [concat(e1body, e2body ? [], [
       ['ImmAssignment', result, op, e1result, e2result]
     ]), result]
+
+  MAliceTranslator::translateValue = (v) ->
+    [[['Assignment', temp = @newTemp(), v]], temp]
 
   MAliceTranslator::newLabel = ->
     "L" + @labelCounter++
