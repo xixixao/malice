@@ -70,7 +70,7 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
     Output :node :pos :returns trans:value
       ->  [body, result] = value
           concat body, [
-            ['Output', result]
+            ['Output', result, node[3].type()]
           ]
 
     Call :node :pos :detail trans:fun trans*:args
