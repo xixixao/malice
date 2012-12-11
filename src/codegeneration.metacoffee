@@ -82,6 +82,7 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
       -> @registerCounter = 0
          @variables = {}
          @data = []
+         @extern = []
 
 
   MAliceCodeGeneration::registerForVariable = (variable) ->
@@ -90,13 +91,13 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
     @variables[variable]
 
   MAliceCodeGeneration::dataSegment = ->
-    result = "section .data\n"
+    result = ["section .data"]
     for name, string of @data
-      result += """\t#{name} db "#{string}",0\n"""
+      result.push """\t#{name} db "#{string}",0"""
     result
 
   MAliceCodeGeneration::finalOutput = (instructions) ->
-    output = [@dataSegment()]
+    output = @dataSegment()
     output.push 'segment .text'
     output.push '\tglobal hatta'
     output = concat output, (concat instructions...)
