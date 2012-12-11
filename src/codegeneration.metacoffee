@@ -1,5 +1,6 @@
 errorHandler = require './errorprinter'
 {concat} = require './metaCoffeeUtils'
+{types} = require './nodes'
 
 module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
 
@@ -21,7 +22,7 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
   ometa MAliceCodeGeneration
 
     trans = [:t apply(t):ans] -> ans
-    list = trans*:result end -> result
+    list = trans*:result end -> @finalOutput result
 
     Label :name
       -> ["#{name}:"]
@@ -57,7 +58,11 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
     Assignment :into :from
       -> ["\tmov #{@registerForVariable into}, #{@registerForVariable from}"]
     ValAssignment :into :value :type
-      -> ["\tmov #{@registerForVariable into}, #{value}"]
+      -> if type.equals types.sentence
+           @data[into] = value
+           @variables[into] = into
+           return
+         ["\tmov #{@registerForVariable into}, #{value}"]
     CallAssignment :into :name :argumentCount
       -> ["\tcall #{name}",
           "\tadd rsp, #{4 * argumentCount}",
@@ -76,12 +81,28 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
     initialize
       -> @registerCounter = 0
          @variables = {}
+         @data = []
 
 
   MAliceCodeGeneration::registerForVariable = (variable) ->
     unless @variables[variable]?
       @variables[variable] = registers[@registerCounter++]
     @variables[variable]
+
+  MAliceCodeGeneration::dataSegment = ->
+    result = "section .data\n"
+    for name, string of @data
+      result += """\t#{name} db "#{string}",0\n"""
+    result
+
+  MAliceCodeGeneration::finalOutput = (instructions) ->
+    output = [@dataSegment()]
+    output.push 'segment .text'
+    output.push '\tglobal hatta'
+    output = concat output, (concat instructions...)
+    output.push '\tcall exit'
+    output.join '\n'
+
 
     #global = MAliceCodeGeneration.matchAll ast.global, "list", undefined, (m, i) -> console.error "ERROR while traversing AST in code generation"
   MAliceCodeGeneration.matchAll ast.stack, "list", undefined, (m, i) -> console.error "ERROR while traversing AST in code generation"
