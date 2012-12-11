@@ -203,6 +203,8 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
     "t" + @tempCounter++
 
   MAliceTranslator::declare = (node, name) ->
+    if name is "hatta" and node?.scope?().outer and not node?.scope?().outer.outer?
+      return "main"
     if @names[name]
       name = name + Math.floor(Math.random() * 999) while @names[name]
     @names[name] = true
