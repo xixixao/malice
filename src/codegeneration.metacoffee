@@ -32,7 +32,7 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
     End :name
       -> args = []
          for argument in @liftedArguments
-           args.unshift "\tpush #{@accessVariable argument}"
+           args.unshift "\tmov [rbp+#{16+8*--@argumentCount}], #{@accessVariable argument}"
          @liftedArguments = []
          concat args, ['\tleave',
                        '\tret']
@@ -50,11 +50,13 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
       -> ["\tjmp #{to}"]
     Param :name
       -> ["\tpush #{@accessVariable name}"]
+    ParamPop :name
+      -> ["\tpop #{@accessVariable name}"]
     Argument :name :type
       -> if Array.isArray name
            [name] = name
            @liftedArguments.push name
-         ["\tpop #{@accessVariable name}"]
+         ["\tmov #{@accessVariable name}, [rbp+#{16+8*@argumentCount++}]"]
     ArrayAccess :into :array :i
       -> ["\tmov #{@accessVariable into}, [#{@accessVariable array} + #{i}]"]
     ArrayAssignment :array :i :value
@@ -64,8 +66,10 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
     Increment :variable
       -> ["\tinc #{@accessVariable variable}"]
     Call :name :argumentCount
-      -> ["\tcall #{name}",
-          "\tadd rsp, #{4 * argumentCount}"]
+      -> result = ["\tcall #{name}"]
+         if argumentCount > 0
+           result.push "\tadd rsp, #{8 * argumentCount}"
+         result
     Assignment :into :from
       -> ["\tmov #{@accessVariable into}, #{@accessVariable from}"]
     PtrAssignment :into :from
@@ -106,6 +110,7 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
          @data = []
          @dataCount = 0
          @liftedArguments = []
+         @argumentCount = 0
          @storeInData '_charFormat', '%c'
          @storeInData '_stringFormat', '%s'
          @storeInData '_numberFormat', '%d'
