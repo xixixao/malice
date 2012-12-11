@@ -7,7 +7,7 @@
 errorHandler = require './errorprinter'
 {concat, join, ObjectifiedArray} = require './metaCoffeeUtils'
 {log} = require './utils'
-{Node, Executes, Value, Reference, FunctionNode,
+{Node, Executes, Block, Value, Reference, FunctionNode,
  SimpleType, FunctionType, ArrayType, ErrorType, types} = require './nodes'
 
 module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
@@ -127,11 +127,12 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
           else if not hatta.returnType().equals types.void
             error "The main function named 'hatta' cannot return a value. " +
                   "Instead, 'hatta' was declared to return '#{hatta.returnType()}'", hatta.returnType()
-          new Node 'Program', pos, declarations, initializations
+          new Node 'Program', pos, scope, declarations, initializations
 
     Function :pos :name trans:returnType trans:args  {
-        @prepareScope = [args, returnType]
-        @declare new FunctionNode 'Function', pos, types.function, name, returnType, args
+        functionNode = @declare new FunctionNode 'Function', pos, types.function, name, returnType, args
+        @prepareScope = [args, returnType, functionNode]
+        return functionNode
       }:fun trans:body
       -> warning "There are paths in '#{name}' that don't return a value" unless body.doesReturn() or returnType.equals types.void
          concat fun, [body]
@@ -142,7 +143,7 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
       ->  new Reference 'Argument', pos, type, name
 
     Block :pos createScope:scope trans:declarations trans:statements exitScope
-      ->  new Executes 'Block', pos, (statements.doesReturn()), declarations, statements
+      ->  new Block 'Block', pos, (statements.doesReturn()), scope, declarations, statements
 
     Declarations :pos trans*:ds
       ->  concat new Node('Declarations', pos), ds
@@ -197,6 +198,7 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
             else
               for arg, i in args
                 checkForTypeError "argument #{i+1}", fun.args()[i].type(), arg, fun.args()[i].type()
+          @currentScope.expandFree fun.scope().frees
           if isStatement
             concat new Executes('Call', pos, false, fun), args
           else
@@ -283,9 +285,10 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
       } (&{@prepareScope?} functionScope(@prepareScope))?
       ->  @currentScope
 
-    functionScope [[anything*:args] :returnType]
+    functionScope [[anything*:args] :returnType :functionNode]
       ->  @currentScope.addAll args
           @currentScope.returns returnType
+          functionNode.scope @currentScope
           delete @prepareScope
     exitScope
       ->  @currentScope = @currentScope.outer
@@ -315,9 +318,19 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
     addAll: (nodes) ->
       @add node for node in nodes
 
+    addFree: (node) ->
+      @frees[node.name()] = node
+
+    expandFree: (frees) ->
+      for name, free of frees when @declarations[name] isnt free
+        log free
+        @addFree free
+
     returns: (type) ->
       if type?
         @returnType = type
+        @frees = {}
+        @freeNames = {}
       else
         @returnType ? @outer.returns()
 
@@ -325,7 +338,19 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
       @declarations[node.name()]
 
     get: (name) ->
-      @declarations[name] or @outer?.get name
+      if not (declaration = @declarations[name])?
+        declaration = @outer?.get name
+        if @returnType? and declaration? and not declaration.type().equals types.function
+          @addFree declaration
+      declaration
+
+    getNameOf: (name) ->
+      log "looking for ", name
+      log @frees?[name], @freeNames[name]
+      if @frees?[name]?
+        @freeNames[name]
+      else
+        @get(name).mangledName
 
   # Nodes
   # -----
@@ -338,9 +363,10 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
     copy.declaredAt = -> node.position()
     copy.position at
     if node.returnType?
-      copy.splice(6, 9e99)
+      copy.splice(7, 9e99)
     else
       copy.splice(4, 9e99)
+    copy.original = node
     copy
 
   dynamicTypes = [types.number, types.letter, types.sentence]
