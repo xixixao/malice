@@ -151,7 +151,5 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
     for v in x.liveout
       variables[v] = union (variables[v] ? []), x.liveout
 
-  for v, interferes of variables
-    log v, interferes
 
   return addresscode

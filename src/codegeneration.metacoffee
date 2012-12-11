@@ -26,8 +26,12 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
 
     Label :name
       -> ["#{name}:"]
+    Begin
+      -> ['\tpush rbp',
+          '\tmov rbp, rsp']
     End :name
-      -> [""]
+      -> ['\tleave',
+          '\tret']
     Variable :name :type
       -> [""]
     Array :name :type :size
@@ -41,40 +45,55 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
     Jump :to
       -> ["\tjmp #{to}"]
     Param :name
-      -> ["\tpush #{@registerForVariable name}"]
+      -> ["\tpush #{@accessVariable name}"]
+    ParamPtr :name
+      -> [""]
     Argument :name :type
       -> [""]
+    ArgumentPtr :name :type
+      -> [""]
     ArrayAccess :into :array :i
-      -> ["\tmov #{@registerForVariable into}, [#{@registerForVariable array} + #{i}]"]
+      -> ["\tmov #{@accessVariable into}, [#{@accessVariable array} + #{i}]"]
     ArrayAssignment :array :i :value
-      -> ["\tmov [#{@registerForVariable array}+#{i}], #{@registerForVariable value}"]
+      -> ["\tmov [#{@accessVariable array}+#{i}], #{@accessVariable value}"]
     Decrement :variable
-      -> ["\tdec #{@registerForVariable variable}"]
+      -> ["\tdec #{@accessVariable variable}"]
     Increment :variable
-      -> ["\tinc #{@registerForVariable variable}"]
+      -> ["\tinc #{@accessVariable variable}"]
     Call :name :argumentCount
       -> ["\tcall #{name}",
           "\tadd rsp, #{4 * argumentCount}"]
     Assignment :into :from
-      -> ["\tmov #{@registerForVariable into}, #{@registerForVariable from}"]
+      -> ["\tmov #{@accessVariable into}, #{@accessVariable from}"]
+    PtrAssignment :into :from
+      -> ["\tmov [#{@accessVariable into}], #{@accessVariable from}"]
     ValAssignment :into :value :type
       -> if type.equals types.sentence
-           @data[into] = value
-           @variables[into] = into
-           return
-         ["\tmov #{@registerForVariable into}, #{value}"]
+           @storeInData into, value
+           return []
+         if type.equals types.letter
+           value = value.charCodeAt 0
+         ["\tmov #{@accessVariable into}, #{value}"]
     CallAssignment :into :name :argumentCount
       -> ["\tcall #{name}",
           "\tadd rsp, #{4 * argumentCount}",
-          "\tmov #{@registerForVariable into}, eax"]
+          "\tmov #{@accessVariable into}, eax"]
     ImmAssignment :into :operator :e1 anything?:e2
       -> [""]
     Return :result
-      -> ["\tmov eax, #{@registerForVariable result}",
+      -> ["\tmov eax, #{@accessVariable result}",
           "\tret"]
     Output :value :type
-      -> ["\tpush #{@registerForVariable value}",
-          "\tcall printf"]
+      -> result = []
+         if type.equals types.sentence
+           result.push "\tmov rdi, #{@accessVariable '_stringFormat'}"
+         else if type.equals types.letter
+           result.push "\tmov rdi, #{@accessVariable '_charFormat'}"
+         else if type.equals types.number
+           result.push "\tmov rdi, #{@accessVariable '_numberFormat'}"
+         result = concat result, ["\tmov rsi, #{@accessVariable value}",
+                                  "\tmov eax, 0",
+                                  "\tcall printf"]
     Read :into :type
       -> [""]
 
@@ -82,26 +101,29 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
       -> @registerCounter = 0
          @variables = {}
          @data = []
-         @extern = []
+         @dataCount = 0
+         @storeInData '_charFormat', '%c'
+         @storeInData '_stringFormat', '%s'
+         @storeInData '_numberFormat', '%d'
 
-
-  MAliceCodeGeneration::registerForVariable = (variable) ->
+  MAliceCodeGeneration::accessVariable = (variable) ->
     unless @variables[variable]?
       @variables[variable] = registers[@registerCounter++]
     @variables[variable]
 
-  MAliceCodeGeneration::dataSegment = ->
-    result = ["section .data"]
-    for name, string of @data
-      result.push """\t#{name} db "#{string}",0"""
-    result
+  MAliceCodeGeneration::storeInData = (name, string) ->
+    @data.push ".LC#{@dataCount}:"
+    @data.push """\t.string "#{string}" """
+    @variables[name] = "OFFSET FLAT:.LC#{@dataCount}"
+    @dataCount++
 
   MAliceCodeGeneration::finalOutput = (instructions) ->
-    output = @dataSegment()
-    output.push 'segment .text'
-    output.push '\tglobal hatta'
+    output = ['.intel_syntax noprefix']
+    output.push '.section .rodata'
+    output = concat output, @data
+    output.push '.text'
+    output.push '\t.globl main'
     output = concat output, (concat instructions...)
-    output.push '\tcall exit'
     output.join '\n'
 
 
