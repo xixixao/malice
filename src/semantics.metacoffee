@@ -345,9 +345,9 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
 
     getNameOf: (name) ->
       if @frees?[name]?
-        @freeNames[name]
+        [@freeNames[name], true]
       else
-        @get(name).mangledName
+        [@get(name).mangledName, false]
 
   # Nodes
   # -----
