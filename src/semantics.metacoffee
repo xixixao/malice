@@ -323,7 +323,6 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
 
     expandFree: (frees) ->
       for name, free of frees when @declarations[name] isnt free
-        log free
         @addFree free
 
     returns: (type) ->
@@ -345,12 +344,10 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
       declaration
 
     getNameOf: (name) ->
-      log "looking for ", name
-      log @frees?[name], @freeNames[name]
       if @frees?[name]?
-        @freeNames[name]
+        [@freeNames[name], true]
       else
-        @get(name).mangledName
+        [@get(name).mangledName, false]
 
   # Nodes
   # -----

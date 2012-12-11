@@ -33,6 +33,7 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
       instruction.liveout = []
 
   # Fill information about instructions using firstAfter
+  moves = {}
   ometa MAliceCodeGeneration
 
     list        = trans*
@@ -40,9 +41,10 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
     visit :node = [:t prepend([node]) apply(t)] -> node
 
     initialize
-      ->  @moves = {}
+      ->  moves = {}
 
     Label :node :name
+    Begin :node
 
     End :node :name
       -> node.next = []
@@ -58,7 +60,6 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
       ->  node.next = [firstAfter[to]]
 
     Argument :node :name :type declaration(node, name, type)
-    ArgumentPtr :node :name :type declaration(node, name, type)
     Variable :node :name :type declaration(node, name, type)
     Array :node :name :type :size declaration(node, name, type)
 
@@ -74,20 +75,18 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
     Call :node :name :argumentCount
 
     Assignment :node :into :from assignment(node, into, from)
-      -> (@moves[into] ?= []).push from
-         (@moves[from] ?= []).push into
+      ->  if not Array.isArray(into) and not Array.isArray(from)
+            (moves[into] ?= []).push from
+            (moves[from] ?= []).push into
 
     assignment :node :into :from
-      ->  node.defines.push into
-          node.using.push from
+      ->  node.defines.push into unless Array.isArray into
+          node.using.push from unless Array.isArray from
 
     ValAssignment :node :into :value :type
-      -> node.defines.push into
+      ->  node.defines.push into
 
     Param :node :value
-      ->  node.using.push value
-
-    ParamPtr :node :value
       ->  node.using.push value
 
     CallAssignment :node :into :name :argumentCount
@@ -139,19 +138,25 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
   # Deriving Interference Graph
   # ---------------------------
 
-#  for x in stack when not x.label?
-#    log x
-#    log "livein"
-#    log x.livein
-#    log "liveout"
-#    log x.liveout
-
   variables = {}
   for x in stack when not x.label?
     for v in x.liveout
       variables[v] = union (variables[v] ? []), x.liveout
 
-  for v, interferes of variables
-    log v, interferes
+  # Register Allocation - Graph Coloring
+  # ------------------------------------
+
+  K = 8
+
+  nodes = (concat [temp], interferes for temp, interferes of variables)
+  nodes.sort (a, b) -> a.length - b.length
+
+  removeNode = (node, nodes) ->
+    temp = node[0]
+
+
+  removeNode nodes[0], nodes[1..]
+  #log nodes
+  #log moves
 
   return addresscode

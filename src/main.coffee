@@ -16,7 +16,7 @@ command
 
 # Compile files
 metacoffee = require './loadMetaCoffee'
-metacoffee (parser, semantics, staticoptimization, translation, codeGeneration) ->
+metacoffee (parser, semantics, staticoptimization, translation, codeGeneration, code3) ->
   for file in command.args
     try
       sourceCode = fs.readFileSync file, 'utf8'
@@ -28,14 +28,11 @@ metacoffee (parser, semantics, staticoptimization, translation, codeGeneration) 
       if typeof syntaxTree isnt "string"
         syntaxTree = semantics.analyze sourceCode, syntaxTree
         #syntaxTree = staticoptimization.optimize sourceCode, syntaxTree
-        if command.tree
-          log syntaxTree
-          console.log "\n"
         syntaxTree = translation.translate sourceCode, syntaxTree
         if command.tree
           log syntaxTree
           console.log "\n"
-        syntaxTree = codeGeneration.generateCode syntaxTree
+        syntaxTree = code3.optimize syntaxTree
         if command.tree
           log syntaxTree
           console.log "\n"
