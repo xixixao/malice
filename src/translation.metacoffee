@@ -91,22 +91,26 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
     Call :node :pos :detail trans:fun trans*:args
       ->  paramBodies = []
           paramResults = []
+          paramPops = []
           for arg in args
             [body, result] = arg
             paramBodies = concat paramBodies, body
-            paramResults.push ['Param', result]
+            paramResults.unshift ['Param', result]
           for freeName, freeNode of node[3].original.scope().frees
-            paramResults.push ['Param', [freeName]]
+            paramResults.unshift ['Param', freeName]
           [_, name] = fun
           call = concat paramBodies, paramResults
+          for freeName, freeNode of node[3].original.scope().frees
+            paramPops.push ['ParamPop', freeName]
+          [_, name] = fun
           if detail is false
             concat call, [
               ['Call', name, args.length]
-            ]
+            ], paramPops
           else
             [concat(call, [
               ['CallAssignment', callResult = @newTemp(), name, args.length]
-            ]), callResult]
+            ], paramPops), callResult]
 
 
     Return :node :pos :returns trans:value
