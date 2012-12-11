@@ -6,11 +6,15 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
 
   stack = addresscode.stack
 
+  # Building Control Flow Graph
+  # ---------------------------
+
   getNextInstruction = (from, at) ->
     loop
       next = from[++at]
       return [] if not next?
       return [next] if next[0] isnt "Label"
+
 
   # Generate firstAfter, the map from labels to first instructions following them
   # and initialize instruction properties
@@ -28,11 +32,15 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
       instruction.livein = []
       instruction.liveout = []
 
+  # Fill information about instructions using firstAfter
   ometa MAliceCodeGeneration
 
     list        = trans*
     trans :node = visit(node, node)
     visit :node = [:t prepend([node]) apply(t)] -> node
+
+    initialize
+      ->  @moves = {}
 
     Label :node :name
 
@@ -50,6 +58,7 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
       ->  node.next = [firstAfter[to]]
 
     Argument :node :name :type declaration(node, name, type)
+    ArgumentPtr :node :name :type declaration(node, name, type)
     Variable :node :name :type declaration(node, name, type)
     Array :node :name :type :size declaration(node, name, type)
 
@@ -65,11 +74,20 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
     Call :node :name :argumentCount
 
     Assignment :node :into :from assignment(node, into, from)
+      -> (@moves[into] ?= []).push from
+         (@moves[from] ?= []).push into
+
+    assignment :node :into :from
+      ->  node.defines.push into
+          node.using.push from
 
     ValAssignment :node :into :value :type
       -> node.defines.push into
 
     Param :node :value
+      ->  node.using.push value
+
+    ParamPtr :node :value
       ->  node.using.push value
 
     CallAssignment :node :into :name :argumentCount
@@ -83,10 +101,6 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
     ArrayAssignment :node :array :index :value
       ->  node.using.push array, index, value
 
-    assignment :node :into :from
-      ->  node.defines.push into
-          node.using.push from
-
     Return :node :result
       ->  node.using.push result
 
@@ -96,11 +110,12 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
     Read :node :into :type
       ->  node.defines.push into
 
-
-
   #global = MAliceCodeGeneration.matchAll addresscode.global, "list", undefined, (m, i) -> console.error "ERROR while traversing AST in code generation"
   #concat global,
   MAliceCodeGeneration.matchAll addresscode.stack, "list", undefined, (m, i) -> console.error "ERROR while traversing AST in code generation"
+
+  # Live Variable Analysis - Dataflow
+  # ---------------------------------
 
   union = (arrays...) ->
     result = []
@@ -121,10 +136,22 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
     break if counter == lastCounter
     lastCounter = counter
 
+  # Deriving Interference Graph
+  # ---------------------------
+
+#  for x in stack when not x.label?
+#    log x
+#    log "livein"
+#    log x.livein
+#    log "liveout"
+#    log x.liveout
+
+  variables = {}
   for x in stack when not x.label?
-    log x
-    log "livein"
-    log x.livein
-    log "liveout"
-    log x.liveout
+    for v in x.liveout
+      variables[v] = union (variables[v] ? []), x.liveout
+
+  for v, interferes of variables
+    log v, interferes
+
   return addresscode

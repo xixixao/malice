@@ -27,14 +27,17 @@ Node = ObjectifiedArray.with position: 1
 # Executes is [node, position, returns, ...]
 Executes = Node.with doesReturn: 2
 
+# Block is [node, position, returns, scope, ...]
+Block = Executes.with scope: 3
+
 # Value is [node, position, type, ...]
 Value = Node.with type:2
 
 # Reference is [node, position, type, name, ...]
 Reference = Value.with name:3
 
-# FunctionNode is [node, position, type, name, returnType, args, ...]
-FunctionNode = Reference.with returnType: 4, args: 5
+# FunctionNode is [node, position, type, name, returnType, args,scope ...]
+FunctionNode = Reference.with returnType: 4, args: 5, scope: 6
 
 # Types
 # -----
@@ -98,4 +101,4 @@ types =
   void: new SimpleType undefined, "void"
   error: new ErrorType
 
-module.exports = {Node, Executes, Value, Reference, FunctionNode, SimpleType, FunctionType, ArrayType, ErrorType, types}
+module.exports = {Node, Executes, Block, Value, Reference, FunctionNode, SimpleType, FunctionType, ArrayType, ErrorType, types}
