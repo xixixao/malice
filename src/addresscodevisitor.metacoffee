@@ -20,6 +20,7 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
     next = getNextInstruction(stack, i)
     if type is "Label"
       firstAfter[label] = next[0]
+      instruction.label = true
     else
       instruction.next = next
       instruction.using = []
@@ -36,6 +37,7 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
     Label :node :name
 
     End :node :name
+      -> node.next = []
 
     IfFalse :node :condition :jumpto if(node, condition, jumpto)
     IfTrue :node :condition :jumpto if(node, condition, jumpto)
@@ -97,5 +99,32 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
 
 
   #global = MAliceCodeGeneration.matchAll addresscode.global, "list", undefined, (m, i) -> console.error "ERROR while traversing AST in code generation"
-  #concat global, 
+  #concat global,
   MAliceCodeGeneration.matchAll addresscode.stack, "list", undefined, (m, i) -> console.error "ERROR while traversing AST in code generation"
+
+  union = (arrays...) ->
+    result = []
+    for x in concat(arrays...) when not (x in result)
+      result.push x
+    result
+
+  difference = (a, b) ->
+    x for x in a when not (x in b)
+
+  lastCounter = 0
+  loop
+    counter = 0
+    for x in stack when not x.label?
+      x.livein  = union x.using, difference x.liveout, x.defines
+      x.liveout = union (next.livein for next in x.next)...
+      counter += x.livein.length + x.liveout.length
+    break if counter == lastCounter
+    lastCounter = counter
+
+  for x in stack when not x.label?
+    log x
+    log "livein"
+    log x.livein
+    log "liveout"
+    log x.liveout
+  return addresscode
