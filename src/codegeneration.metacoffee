@@ -19,6 +19,12 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
     "r15"
   ]
 
+  pushAll = ->
+    registers.map (register) -> "\tpush #{register}"
+
+  popAll = ->
+    (registers.map (register) -> "\tpop #{register}").reverse()
+
   ometa MAliceCodeGeneration
 
     trans = [:t apply(t):ans] -> ans
@@ -31,7 +37,7 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
           '\tmov rbp, rsp']
     End :name
       -> args = []
-         for argument in @liftedArguments
+         for argument in @liftedArguments.reverse()
            args.unshift "\tmov [rbp+#{16+8*--@argumentCount}], #{@accessVariable argument}"
          @liftedArguments = []
          concat args, ['\tleave',
@@ -98,9 +104,10 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
            result.push "\tmov rdi, #{@accessVariable '_charFormat'}"
          else if type.equals types.number
            result.push "\tmov rdi, #{@accessVariable '_numberFormat'}"
-         result = concat result, ["\tmov rsi, #{@accessVariable value}",
-                                  "\tmov eax, 0",
-                                  "\tcall printf"]
+         result = concat result, pushAll(),
+           ["\tmov rsi, #{@accessVariable value}",
+           "\tmov eax, 0",
+           "\tcall printf"], popAll()
     Read :into :type
       -> [""]
 
