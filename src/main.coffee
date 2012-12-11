@@ -30,9 +30,9 @@ metacoffee (parser, semantics, staticoptimization, translation, codeGeneration) 
       if typeof syntaxTree isnt "string"
         syntaxTree = semantics.analyze sourceCode, syntaxTree
         #syntaxTree = staticoptimization.optimize sourceCode, syntaxTree
-        if command.tree
-          log syntaxTree
-          console.log "\n"
+        #if command.tree
+        #  log syntaxTree
+        #  console.log "\n"
         syntaxTree = translation.translate sourceCode, syntaxTree
         if command.tree
           log syntaxTree

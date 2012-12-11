@@ -30,8 +30,12 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
       -> ['\tpush rbp',
           '\tmov rbp, rsp']
     End :name
-      -> ['\tleave',
-          '\tret']
+      -> args = []
+         for argument in @liftedArguments
+           args.unshift "\tpush #{@accessVariable argument}"
+         @liftedArguments = []
+         concat args, ['\tleave',
+                       '\tret']
     Variable :name :type
       -> [""]
     Array :name :type :size
@@ -46,12 +50,11 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
       -> ["\tjmp #{to}"]
     Param :name
       -> ["\tpush #{@accessVariable name}"]
-    ParamPtr :name
-      -> [""]
     Argument :name :type
-      -> [""]
-    ArgumentPtr :name :type
-      -> [""]
+      -> if Array.isArray name
+           [name] = name
+           @liftedArguments.push name
+         ["\tpop #{@accessVariable name}"]
     ArrayAccess :into :array :i
       -> ["\tmov #{@accessVariable into}, [#{@accessVariable array} + #{i}]"]
     ArrayAssignment :array :i :value
@@ -102,11 +105,14 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
          @variables = {}
          @data = []
          @dataCount = 0
+         @liftedArguments = []
          @storeInData '_charFormat', '%c'
          @storeInData '_stringFormat', '%s'
          @storeInData '_numberFormat', '%d'
 
   MAliceCodeGeneration::accessVariable = (variable) ->
+    if Array.isArray variable
+      [variable] = variable
     unless @variables[variable]?
       @variables[variable] = registers[@registerCounter++]
     @variables[variable]
@@ -125,7 +131,6 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
     output.push '\t.globl main'
     output = concat output, (concat instructions...)
     output.join '\n'
-
 
     #global = MAliceCodeGeneration.matchAll ast.global, "list", undefined, (m, i) -> console.error "ERROR while traversing AST in code generation"
   MAliceCodeGeneration.matchAll ast.stack, "list", undefined, (m, i) -> console.error "ERROR while traversing AST in code generation"
