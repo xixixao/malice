@@ -117,6 +117,10 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
   #concat global,
   MAliceDataFlowAnalysis.matchAll stack, "list", undefined, (m, i) -> console.error "ERROR while traversing AST in code generation"
 
+
+
+
+
   # Live Variable Analysis - Dataflow
   # ---------------------------------
 
@@ -129,22 +133,27 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
   difference = (a, b) ->
     x for x in a when not (x in b)
 
-  lastCounter = 0
-  loop
-    counter = 0
-    for x in stack when not x.label?
+  solve = (nodes, fun) ->
+    loop
+      counter = 0
+      for x in nodes when not x.label?
+        counter += fun x
+      break if counter == lastCounter
+      lastCounter = counter
+    return
+
+  liveness = (nodes) ->
+    solve nodes, (x) ->
       x.livein  = union x.using, difference x.liveout, x.defines
       x.liveout = union (next.livein for next in x.next)...
-      counter += x.livein.length + x.liveout.length
-    break if counter == lastCounter
-    lastCounter = counter
+      x.livein.length + x.liveout.length
 
   # Deriving Interference Graph
   # ---------------------------
 
-  build = ->
+  build = (nodes) ->
     graph = {}
-    for x in stack when not x.label?
+    for x in nodes when not x.label?
       for v in x.liveout
         graph[v] = union (graph[v] ? []), x.liveout
     log graph
@@ -251,43 +260,49 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
         log  "actual spill": temp
     return colors
 
-
   actualSpill = ->
 
-  coloring = simplify [], build(), 8
+  # Register Allocation - Update Data-flow Graph
 
-  log stack
-  # Go through Three Address Code and replaces it according to Register Allocation
+  allocateRegisters = (nodes, coloring) ->
 
-  # Returns whether some operand is unused, hence if the node is dead code
-  replaceNames = (node, number) ->
-    for temp, i in node[1..number] by 1
-      if !coloring[fromPointer temp]?
-        return yes
-      node[1 + i] = "$#{coloring[fromPointer temp]}"
-    return no
+    # Returns whether some operand is unused, hence if the node is dead code
+    replaceNames = (node, number) ->
+      for temp, i in node[1..number] by 1
+        if !coloring[fromPointer temp]?
+          return yes
+        node[1 + i] = "$#{coloring[fromPointer temp]}"
+      return no
 
-  # Split back coalesced temporaries
-  for temp, register of coloring
-    for t in temp.split ','
-      coloring[t] = register
+    # Split back coalesced temporaries
+    for temp, register of coloring
+      for t in temp.split ','
+        coloring[t] = register
 
-  for address in [stack.length - 1..0]
-    [code, operands...] = node = stack[address]
-    # Allocate registers
-    switch code
-      when 'Label', 'Begin', 'End', 'Jump', 'Call' then null
-      when 'Assignment'
-        dead = replaceNames node, 2
-        [_, to, from] = node
-        dead or= to == from
-      when 'ArrayAccess', 'ImmAssignment'
-        dead = replaceNames node, 3
-      else
-        dead = replaceNames node, 1
-      # Remove node if dead code
-    stack.splice address, 1 if dead
+    for address in [stack.length - 1..0]
+      [code, operands...] = node = stack[address]
+      # Allocate registers
+      switch code
+        when 'Label', 'Begin', 'End', 'Jump', 'Call' then null
+        when 'Assignment'
+          dead = replaceNames node, 2
+          [_, to, from] = node
+          dead or= to == from
+        when 'ArrayAccess', 'ImmAssignment'
+          dead = replaceNames node, 3
+        else
+          dead = replaceNames node, 1
+          dead and= code isnt 'CallAssignment'
+        # Remove node if dead code
+      stack.splice address, 1 if dead
 
-  log addresscode
+
+  # Perform register allocation:
+  # ----------------------------
+
+  nodes = addresscode.stack
+  liveness nodes
+  coloring = simplify [], build(nodes), 8
+  allocateRegisters nodes, coloring
 
   return addresscode
