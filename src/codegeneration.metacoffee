@@ -99,20 +99,20 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
       -> ["\tmov eax, #{@accessVariable result}",
           "\tret"]
     Output :value :type
-      -> result = []
-         if type.equals types.sentence
-           result.push "\tmov rdi, #{@accessVariable '_stringFormat'}"
-         else if type.equals types.letter
-           result.push "\tmov rdi, #{@accessVariable '_charFormat'}"
-         else if type.equals types.number
-           result.push "\tmov rdi, #{@accessVariable '_numberFormat'}"
-         result = concat result, pushAll(),
-           ["\tmov rsi, #{@accessVariable value}",
-           "\tmov eax, 0",
-           "\tcall printf"], popAll()
+      -> concat @formatString('rdi', type),
+                pushAll(),
+                ["\tmov rsi, #{@accessVariable value}",
+                 "\tmov eax, 0",
+                 "\tcall printf"],
+                popAll()
     Read :into :type
-      -> [""]
-
+      -> concat @formatString('rdi', type),
+                pushAll(),
+                ["\tsub rsp, 8",
+                 "\tmov rsi, rsp",
+                 "\tmov eax, 0",
+                 "\tcall scanf",
+                 "\tmov #{@accessVariable into}, rsp"]
     initialize
       -> @registerCounter = 0
          @variables = {}
@@ -136,6 +136,16 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
     @data.push """\t.string "#{string}" """
     @variables[name] = "OFFSET FLAT:.LC#{@dataCount}"
     @dataCount++
+
+  MAliceCodeGeneration::formatString = (into, type) ->
+    if type.equals types.sentence
+      format = '_stringFormat'
+    else if type.equals types.letter
+      format = '_charFormat'
+    else if type.equals types.number
+      format = '_numberFormat'
+    ["\tmov #{into}, #{@accessVariable format}"]
+
 
   MAliceCodeGeneration::finalOutput = (instructions) ->
     output = ['.intel_syntax noprefix']
