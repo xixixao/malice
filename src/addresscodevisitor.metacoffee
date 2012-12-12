@@ -26,7 +26,6 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
     if type is "Label"
       firstAfter[label] = next[0]
       instruction.label = true
-      instruction.include = yes
     else
       instruction.next = next
       instruction.using = []
@@ -35,7 +34,6 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
       instruction.liveout = []
       if type is "End"
         instruction.next = []
-        next.map (n) -> delete n.include
 
   # Fill information about instructions using firstAfter
   moves = []
@@ -61,11 +59,11 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
     Jump :node :to
       ->  node.next = [firstAfter[to]]
 
-    Argument :node :name :type declaration(node, name, type)
-    Variable :node :name :type declaration(node, name, type)
-    Array :node :name :type :size declaration(node, name, type)
+    Argument :node :name :type declaration(node, name)
+    Variable :node :name :type declaration(node, name)
+    Array :node :name :type :size declaration(node, name)
 
-    declaration :node :name :type
+    declaration :node :name
       ->  node.defines.push fromPointer name
 
     ArrayAccess :node :into :array :index assignment(node, into, array)
@@ -258,34 +256,38 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
 
   coloring = simplify [], build(), 8
 
-
+  log stack
   # Go through Three Address Code and replaces it according to Register Allocation
 
+  # Returns whether some operand is unused, hence if the node is dead code
   replaceNames = (node, number) ->
-    for temp, i in node[1..number]
+    for temp, i in node[1..number] by 1
+      if !coloring[fromPointer temp]?
+        return yes
       node[1 + i] = "$#{coloring[fromPointer temp]}"
+    return no
 
   # Split back coalesced temporaries
   for temp, register of coloring
     for t in temp.split ','
       coloring[t] = register
 
-  pos = 0
-  while pos < stack.length
-    [code, operands...] = node = stack[pos]
+  for address in [stack.length - 1..0]
+    [code, operands...] = node = stack[address]
+    # Allocate registers
     switch code
+      when 'Label', 'Begin', 'End', 'Jump', 'Call' then null
       when 'Assignment'
-        # Check for removed moves
-        unless (moves.some ([a, b, moveNode]) -> moveNode is node)
-          stack.splice pos--, 1
-        replaceNames node, 2
-      when 'Label', 'Begin', 'End', 'Jump', 'Call'
-        null
-      # Binary
-      when 'ArrayAccess'
-        replaceNames node, 3
+        dead = replaceNames node, 2
+        [_, to, from] = node
+        dead or= to == from
+      when 'ArrayAccess', 'ImmAssignment'
+        dead = replaceNames node, 3
       else
-        replaceNames node, 1
-    pos++
+        dead = replaceNames node, 1
+      # Remove node if dead code
+    stack.splice address, 1 if dead
+
+  log addresscode
 
   return addresscode
