@@ -197,9 +197,12 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
     [e1body, e1result] = e1
     [e2body, e2result] = e2 if e2?
     result = @newTemp()
-    [concat(e1body, e2body ? [], [
-      concat ['ImmAssignment', result, op, e1result], if e2? then [e2result] else []
-    ]), result]
+    [concat(e1body, e2body ? [],
+      if e2?
+        [['Assignment', result, e1result], ['ImmAssignment', result, op, result, e2result]]
+      else
+        [['ImmAssignment', result, op, e1result]]
+    ), result]
 
   MAliceTranslator::translateValue = (v, type) ->
     [[['ValAssignment', temp = @newTemp(), v, type]], temp]
