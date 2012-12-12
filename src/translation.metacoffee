@@ -96,12 +96,13 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
             [body, result] = arg
             paramBodies = concat paramBodies, body
             paramResults.unshift ['Param', result]
-          for freeName, freeNode of node[3].original.scope().frees
-            paramResults.unshift ['Param', freeName]
+          scope = node[3].original.scope()
+          for freeName, freeNode of scope.frees
+            paramResults.unshift ['Param', scope.getNameOf(freeName)[0]]
           [_, name] = fun
           call = concat paramBodies, paramResults
-          for freeName, freeNode of node[3].original.scope().frees
-            paramPops.push ['ParamPop', freeName]
+          for freeName, freeNode of scope.frees
+            paramPops.push ['ParamPop', scope.getNameOf(freeName)[0]]
           [_, name] = fun
           if detail is false
             concat call, [
