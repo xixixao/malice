@@ -4,36 +4,43 @@ errorHandler = require './errorprinter'
 
 module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
 
-  stack = addresscode.stack
+  nodes = addresscode.stack
 
   # Building Control Flow Graph
   # ---------------------------
 
-  getNextInstruction = (from, at) ->
+  getNextInstruction = (nodes, at) ->
     loop
-      next = from[++at]
+      next = nodes[++at]
       return [] if not next?
       next.include = true
       return [next] if next[0] isnt "Label"
 
   # Generate firstAfter, the map from labels to first instructions following them
   # and initialize instruction properties
-  # Also performs simple dead code analysis
+  # Instruction properties will maintain the doubly linked control-flow graph
   firstAfter = {}
-  for instruction, i in stack
+  for instruction, i in nodes
     [type, label] = instruction
-    next = getNextInstruction(stack, i)
+    next = getNextInstruction(nodes, i)
     if type is "Label"
       firstAfter[label] = next[0]
       instruction.label = true
     else
       instruction.next = next
+      instruction.prev = []
       instruction.using = []
       instruction.defines = []
       instruction.livein = []
       instruction.liveout = []
       if type is "End"
         instruction.next = []
+
+  addDefines = (node, variables...) ->
+    variables.map (v) -> node.defines.push [fromPointer v]
+
+  addUsing = (node, variables...) ->
+    variables.map (v) -> node.using.push [fromPointer(v), node]
 
   # Fill information about instructions using firstAfter
   moves = []
@@ -54,7 +61,7 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
 
     if :node :condition :jumpto
       ->  node.next.push firstAfter[jumpto]
-          node.using.push condition
+          addUsing node, condition
 
     Jump :node :to
       ->  node.next = [firstAfter[to]]
@@ -64,10 +71,10 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
     Array :node :name :type :size declaration(node, name)
 
     declaration :node :name
-      ->  node.defines.push fromPointer name
+      ->  addDefines node, name
 
     ArrayAccess :node :into :array :index assignment(node, into, array)
-      ->  node.using.push index
+      ->  addUsing node, index
 
     Decrement :node :variable assignment(node, variable, variable)
     Increment :node :variable assignment(node, variable, variable)
@@ -78,47 +85,62 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
       ->  moves.push [fromPointer(into), fromPointer(from), node]
 
     assignment :node :into :from
-      ->  node.defines.push fromPointer into
-          node.using.push fromPointer from
+      ->  addDefines node, into
+          addUsing node, from
 
     ValAssignment :node :into :value :type
-      ->  node.defines.push into
+      ->  addDefines node, into
 
     Param :node :value
-      ->  node.using.push value
+      ->  addUsing node, value
 
     ParamPop :node :variable
-      ->  node.defines.push variable
+      ->  addDefines node, variable
 
     CallAssignment :node :into :name :argumentCount
-      ->  node.defines.push into
+      ->  addDefines node, into
 
     ImmAssignment :node :into :operator :e1 anything?:e2
-      -> node.defines.push into
-         node.using.push e1
-         node.using.push e2 if e2?
+      ->  addDefines node, into
+          addUsing node, e1
+          addUsing node, e2 if e2?
 
     ArrayAssignment :node :array :index :value
-      ->  node.using.push array, index, value
+      ->  addUsing node, array, index, value
 
     Return :node :result
-      ->  node.using.push result
+      ->  addUsing node, result
 
     Output :node :value :type
-      ->  node.using.push fromPointer value
+      ->  addUsing node, value
 
     Read :node :into :type
-      ->  node.defines.push into
+      ->  addDefines node, into
 
   fromPointer = (value) ->
     if Array.isArray value then value[0] else value
 
+  # Construct Control Flow Graph
+  # ----------------------------
+
   #global = MAliceDataFlowAnalysis.matchAll addresscode.global, "list", undefined, (m, i) -> console.error "ERROR while traversing AST in code generation"
   #concat global,
-  MAliceDataFlowAnalysis.matchAll stack, "list", undefined, (m, i) -> console.error "ERROR while traversing AST in code generation"
+  MAliceDataFlowAnalysis.matchAll nodes, "list", undefined, (m, i) -> console.error "ERROR while traversing AST in code generation"
 
+  createBackLinks = (nodes) ->
+    for x in nodes when not x.label?
+      for y in x.next
+        y.prev.push x
 
+  createBackLinks nodes
 
+  removeNode = (node) ->
+    for pred in node.prev
+      pred.next.splice pred.next.indexOf(node), 1
+      pred.next = union pred.next, node.next
+    for succ in node.next
+      succ.prev.splice succ.prev.indexOf(node), 1
+      succ.prev = union succ.prev, node.prev
 
 
   # Live Variable Analysis - Dataflow
@@ -130,8 +152,9 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
       result.push x
     result
 
-  difference = (a, b) ->
-    x for x in a when not (x in b)
+  difference = (a, b, different) ->
+    different ?= (elA, elB) -> elA isnt elB
+    x for x in a when b.every (y) -> different x, y
 
   solve = (nodes, fun) ->
     loop
@@ -142,9 +165,11 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
       lastCounter = counter
     return
 
+  nodeDifference = (a, b) -> difference a, b, ([out], [def]) -> out isnt def
+
   liveness = (nodes) ->
     solve nodes, (x) ->
-      x.livein  = union x.using, difference x.liveout, x.defines
+      x.livein  = union x.using, nodeDifference x.liveout, x.defines
       x.liveout = union (next.livein for next in x.next)...
       x.livein.length + x.liveout.length
 
@@ -154,9 +179,9 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
   build = (nodes) ->
     graph = {}
     for x in nodes when not x.label?
-      for v in x.liveout
-        graph[v] = union (graph[v] ? []), x.liveout
-    log graph
+      for [v] in x.liveout
+        graph[v] = union (graph[v] ? []), x.liveout.map ([v2]) -> v2
+    log "built: ", graph
     return graph
 
   categorize = (graph) ->
@@ -198,25 +223,32 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
 
   coalesce = (stack, graph, limit, canSimplify = yes) ->
     log "coalesce", graph, moves
-    for [a, b, node], i in moves
+    for [a, b, node], i in moves when graph[a]? and graph[b]?
       coalescable = graph[a].every (t) ->
         graph[t].length < limit or b in graph[t]
       if coalescable
         # Create new coalesced temporary
         newTemp = a + "," + b
+        oldNames = [a, b]
+        log "coalescing into ", newTemp
         # Replace old temporaries with the new joined one
         for temp, interferes of graph
-          graph[temp] = graph[temp].map (x) ->
-            if x in [a, b] then newTemp else x
+          graph[temp] = graph[temp].map (old) ->
+            if old in oldNames then newTemp else old
         # Add new joined interference node and delete old nodes
         graph[newTemp] = union graph[a], graph[b]
         delete graph[a]
         delete graph[b]
+        # Replace old temporaries in interference lists on the stack
+        for [t, interference], si in stack
+          stack[si] = [t, interference.map (old) ->
+            if old in oldNames then newTemp else old
+          ]
         # Replace old temporaries in moves
         for move in moves
           [c, d] = move
-          move[0] = newTemp if c in [a, b]
-          move[1] = newTemp if d in [a, b]
+          move[0] = newTemp if c in oldNames
+          move[1] = newTemp if d in oldNames
         # Delete old move node
         moves.splice i, 1
         # Check if the new node still moves
@@ -246,10 +278,10 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
 
 
   select = (stack, graph, limit) ->
+    log "selecting from stack: ", stack
     [temp, _] = stack.pop()
     colors = {}
     colors[temp] = 0
-    log "stack", stack
     while stack.length > 0
       [temp, interferes] = stack.pop()
       for color in [0...limit]
@@ -267,20 +299,23 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
   allocateRegisters = (nodes, coloring) ->
 
     # Returns whether some operand is unused, hence if the node is dead code
-    replaceNames = (node, number) ->
-      for temp, i in node[1..number] by 1
-        if !coloring[fromPointer temp]?
-          return yes
-        node[1 + i] = "$#{coloring[fromPointer temp]}"
+    replaceName = (node, index) ->
+      temp = fromPointer node[index]
+      if temp?
+        return yes unless coloring[temp]?
+        node[index] = "$#{coloring[temp]}"
       return no
+
+    replaceNames = (node, number) ->
+      [1..number].some (index) -> replaceName node, index
 
     # Split back coalesced temporaries
     for temp, register of coloring
       for t in temp.split ','
         coloring[t] = register
 
-    for address in [stack.length - 1..0]
-      [code, operands...] = node = stack[address]
+    for address in [nodes.length - 1..0]
+      [code, operands...] = node = nodes[address]
       # Allocate registers
       switch code
         when 'Label', 'Begin', 'End', 'Jump', 'Call' then null
@@ -288,21 +323,46 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
           dead = replaceNames node, 2
           [_, to, from] = node
           dead or= to == from
-        when 'ArrayAccess', 'ImmAssignment'
+        when 'ArrayAccess'
           dead = replaceNames node, 3
+        when 'ImmAssignment'
+          #node = ['ImmAssignment', into, op, e1, e2?]
+          dead = [1, 3, 4].some (i) -> replaceName(node, i)
         else
           dead = replaceNames node, 1
           dead and= code isnt 'CallAssignment'
         # Remove node if dead code
-      stack.splice address, 1 if dead
+      nodes.splice address, 1 if dead
 
+  # Dead-code Elimination
+  # ---------------------
+  deadCodeElimination = (nodes) ->
+    for node in nodes
+      [code, operands...] = node
+      switch code
+        when 'Label', 'Begin', 'End', 'Jump', 'Call' then null
+        when 'Assignment'
+          [into, e1, e2] = operands
+          if (node.liveout.every ([used]) -> used isnt into)
+            for e in [e1, e2] when e?
+              for x in nodes when not x.label?
+                for set in ['livein', 'liveout']
+                  x[set] = x[set].filter ([t, usenode]) ->
+                    t isnt e or usenode isnt node
+            #removeNode node
+            node.removed = true
+    return nodes
 
   # Perform register allocation:
   # ----------------------------
 
   nodes = addresscode.stack
   liveness nodes
+  nodes = deadCodeElimination nodes
+  for x, i in nodes
+    log i, x[0], x.removed, x.liveout
   coloring = simplify [], build(nodes), 8
+  log "coloring", coloring
   allocateRegisters nodes, coloring
 
   return addresscode
