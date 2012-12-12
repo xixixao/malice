@@ -349,14 +349,8 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
                 for set in ['livein', 'liveout']
                   x[set] = x[set].filter ([t, usenode]) ->
                     t isnt e or usenode isnt node
-            node.eliminate = true
-    # Remove dead nodes
-    nodes = nodes.filter (node) ->
-      if node.eliminate?
-        removeNode node
-        false
-      else
-        true
+            #removeNode node
+            node.removed = true
     return nodes
 
   # Perform register allocation:
@@ -364,9 +358,9 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
 
   nodes = addresscode.stack
   liveness nodes
-  #nodes = deadCodeElimination nodes
-  for x in nodes
-    log x, x.livein, x.liveout
+  nodes = deadCodeElimination nodes
+  for x, i in nodes
+    log i, x[0], x.removed, x.liveout
   coloring = simplify [], build(nodes), 8
   log "coloring", coloring
   allocateRegisters nodes, coloring
