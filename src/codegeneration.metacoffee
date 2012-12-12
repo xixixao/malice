@@ -104,7 +104,7 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
     CallAssignment :into :name :argumentCount
       -> ["\tcall #{name}",
           "\tadd rsp, #{8 * argumentCount}",
-          "\tmov #{@accessVariable into}, eax"]
+          "\tmov #{@accessVariable into}, rax"]
     ImmAssignment :into :op :e1 anything?:e2
       -> e1 = e2 if e2?
          if op == '/'
@@ -121,8 +121,7 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
 
 
     Return :result
-      -> ["\tmov eax, #{@accessVariable result}",
-          "\tret"]
+      -> ["\tmov rax, #{@accessVariable result}"]
     Output :value :type
       -> concat @formatString('rdi', type),
                 pushAll(),
