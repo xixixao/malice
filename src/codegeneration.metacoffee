@@ -5,10 +5,10 @@ errorHandler = require './errorprinter'
 module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
 
   registers = [
-    "rax"
+    #"rax"
     "rbx"
     "rcx"
-    "rdx"
+    #"rdx"
     "r8"
     "r9"
     "r10"
@@ -94,7 +94,19 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
           "\tadd rsp, #{8 * argumentCount}",
           "\tmov #{@accessVariable into}, eax"]
     ImmAssignment :into :operator :e1 anything?:e2
-      -> [""]
+      -> e1 = e2 if e2?
+         if operator == '+'
+           ["\tadd #{@accessVariable into}, #{@accessVariable e1}"]
+         else if operator == '-'
+           ["\tsub #{@accessVariable into}, #{@accessVariable e1}"]
+         else if operator == '*'
+           ["\timul #{@accessVariable into}, #{@accessVariable e1}"]
+         else if operator == '/'
+           ["\tmov rax, #{@accessVariable into}",
+            "\txor rdx, rdx",
+            "\tidiv #{@accessVariable e1}",
+            "\tmov #{@accessVariable into}, rax"]
+
     Return :result
       -> ["\tmov eax, #{@accessVariable result}",
           "\tret"]

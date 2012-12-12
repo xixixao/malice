@@ -24,7 +24,7 @@ metacoffee (parser, semantics, staticoptimization, translation, codeGeneration, 
     catch e
       console.error "File '#{file}' couldn't be loaded!"
     if sourceCode?
-      console.log "\nCompiling file '#{clc.greenBright file}'\n"
+      console.error "\nCompiling file '#{clc.greenBright file}'\n"
       syntaxTree = parser.parse sourceCode
       if typeof syntaxTree isnt "string"
         syntaxTree = semantics.analyze sourceCode, syntaxTree
@@ -33,7 +33,7 @@ metacoffee (parser, semantics, staticoptimization, translation, codeGeneration, 
         if command.tree
           log syntaxTree
           console.log "\n"
-        syntaxTree = code3.optimize syntaxTree
+        #syntaxTree = code3.optimize syntaxTree
         if command.tree
           log syntaxTree
           console.log "\n"
