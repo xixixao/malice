@@ -26,6 +26,7 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
       for freeName, freeNode of scope.frees
         args.push ['Argument', [newFreeName = @declare(null, freeName)], freeNode.type()]
         scope.freeNames[freeName] = newFreeName
+      log name, scope.frees, scope.freeNames
     } trans:body
       ->  name = @declare(node, name)
           concat [['Label', name], ['Begin']], args, body, [['End', name]]
@@ -98,11 +99,11 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
             paramResults.unshift ['Param', result]
           scope = node[3].original.scope()
           for freeName, freeNode of scope.frees
-            paramResults.unshift ['Param', scope.getNameOf(freeName)[0]]
+            paramResults.unshift ['Param', @currentScope.getNameOf(freeNode.name())[0]]
           [_, name] = fun
           call = concat paramBodies, paramResults
           for freeName, freeNode of scope.frees
-            paramPops.push ['ParamPop', scope.getNameOf(freeName)[0]]
+            paramPops.push ['ParamPop', @currentScope.getNameOf(freeNode.name())[0]]
           [_, name] = fun
           if detail is false
             concat call, [
