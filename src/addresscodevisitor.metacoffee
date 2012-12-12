@@ -185,7 +185,6 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
     return graph
 
   categorize = (graph) ->
-    log "categorize", graph, moves
     for temp, interferes of graph
       delete interferes.moves
     moves = moves.filter ([a, b]) ->
@@ -202,13 +201,11 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
 
   remove = (temp, graph) ->
     interferes = graph[temp]
-    log "interferes", interferes
     for x in interferes
       graph[x] = graph[x]?.filter (t) -> t isnt temp
     delete graph[temp]
 
   simplify = (stack, graph, limit, canCoalesce = yes) ->
-    log "simplify", graph
     for temp, interferes of graph when not interferes.moves?
       if interferes.length < limit
         stack.push [temp, interferes]
@@ -222,7 +219,6 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
       return freeze stack, graph, limit
 
   coalesce = (stack, graph, limit, canSimplify = yes) ->
-    log "coalesce", graph, moves
     for [a, b, node], i in moves when graph[a]? and graph[b]?
       coalescable = graph[a].every (t) ->
         graph[t].length < limit or b in graph[t]
@@ -278,10 +274,7 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
 
 
   select = (stack, graph, limit) ->
-    log "selecting from stack: ", stack
-    [temp, _] = stack.pop()
     colors = {}
-    colors[temp] = 0
     while stack.length > 0
       [temp, interferes] = stack.pop()
       for color in [0...limit]
@@ -337,32 +330,41 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
   # Dead-code Elimination
   # ---------------------
   deadCodeElimination = (nodes) ->
-    for node in nodes
+    for node in nodes when not node.removed?
       [code, operands...] = node
       switch code
         when 'Label', 'Begin', 'End', 'Jump', 'Call' then null
-        when 'Assignment'
-          [into, e1, e2] = operands
-          if (node.liveout.every ([used]) -> used isnt into)
-            for e in [e1, e2] when e?
-              for x in nodes when not x.label?
-                for set in ['livein', 'liveout']
-                  x[set] = x[set].filter ([t, usenode]) ->
-                    t isnt e or usenode isnt node
-            #removeNode node
-            node.removed = true
-    return nodes
+        else
+          for defined in node.defines
+            defined = fromPointer defined
+            if (node.liveout.every ([used]) -> used isnt defined)
+              for use in node.using
+                for x in nodes when not x.label?
+                  for set in ['livein', 'liveout']
+                    x[set] = x[set].filter (xUse) -> xUse isnt use
+              removeNode node
+              log "Removving ", node
+              return node.removed = true
+    return false
+
+  removeDeadNodes = (nodes) ->
+    nodes.filter (node) -> not node.removed?
+
 
   # Perform register allocation:
   # ----------------------------
 
   nodes = addresscode.stack
   liveness nodes
-  nodes = deadCodeElimination nodes
+  while deadCodeElimination nodes
+    liveness nodes
+  nodes = removeDeadNodes nodes
   for x, i in nodes
     log i, x[0], x.removed, x.liveout
-  coloring = simplify [], build(nodes), 8
+  coloring = simplify [], build(nodes), 14
   log "coloring", coloring
   allocateRegisters nodes, coloring
+
+  addresscode.stack = nodes
 
   return addresscode
