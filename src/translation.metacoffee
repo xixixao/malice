@@ -31,7 +31,7 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
           concat [['Label', name], ['Begin']], args, body, [['End', name]]
 
     Argument :node :pos :type :name
-      ->  ['Argument', name, type]
+      ->  ['Argument', @declare(node, name), type]
 
     Block :node :pos :returns :scope enterScope(scope) trans:declarations trans:statements exitScope
       ->  concat declarations, statements
@@ -68,7 +68,7 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
           ]
 
     Assignment :node :pos :returns trans:assignable trans:value
-      ->  [body, result] = value
+      ->  log node[3], value; [body, result] = value
           [_, into] = assignable
           concat body, [
             ["Assignment", into, result]
