@@ -68,7 +68,7 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
           ]
 
     Assignment :node :pos :returns trans:assignable trans:value
-      ->  log node[3], value; [body, result] = value
+      ->  [body, result] = value
           [_, into] = assignable
           concat body, [
             ["Assignment", into, result]
