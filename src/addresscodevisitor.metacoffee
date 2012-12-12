@@ -13,11 +13,12 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
     loop
       next = from[++at]
       return [] if not next?
+      next.include = true
       return [next] if next[0] isnt "Label"
-
 
   # Generate firstAfter, the map from labels to first instructions following them
   # and initialize instruction properties
+  # Also performs simple dead code analysis
   firstAfter = {}
   for instruction, i in stack
     [type, label] = instruction
@@ -25,23 +26,24 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
     if type is "Label"
       firstAfter[label] = next[0]
       instruction.label = true
+      instruction.include = yes
     else
       instruction.next = next
       instruction.using = []
       instruction.defines = []
       instruction.livein = []
       instruction.liveout = []
+      if type is "End"
+        instruction.next = []
+        next.map (n) -> delete n.include
 
   # Fill information about instructions using firstAfter
   moves = []
-  ometa MAliceCodeGeneration
+  ometa MAliceDataFlowAnalysis
 
     list        = trans*
     trans :node = visit(node, node)
     visit :node = [:t prepend([node]) apply(t)] -> node
-
-    initialize
-      ->  moves = {}
 
     Label :node :name
     Begin :node
@@ -64,7 +66,7 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
     Array :node :name :type :size declaration(node, name, type)
 
     declaration :node :name :type
-      ->  node.defines.push if Array.isArray name then name[0] else name
+      ->  node.defines.push fromPointer name
 
     ArrayAccess :node :into :array :index assignment(node, into, array)
       ->  node.using.push index
@@ -75,12 +77,11 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
     Call :node :name :argumentCount
 
     Assignment :node :into :from assignment(node, into, from)
-      ->  if not Array.isArray(into) and not Array.isArray(from)
-            moves.push [into, from, node]
+      ->  moves.push [fromPointer(into), fromPointer(from), node]
 
     assignment :node :into :from
-      ->  node.defines.push into unless Array.isArray into
-          node.using.push from unless Array.isArray from
+      ->  node.defines.push fromPointer into
+          node.using.push fromPointer from
 
     ValAssignment :node :into :value :type
       ->  node.defines.push into
@@ -106,14 +107,17 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
       ->  node.using.push result
 
     Output :node :value :type
-      ->  node.using.push if Array.isArray value then value[0] else value
+      ->  node.using.push fromPointer value
 
     Read :node :into :type
       ->  node.defines.push into
 
-  #global = MAliceCodeGeneration.matchAll addresscode.global, "list", undefined, (m, i) -> console.error "ERROR while traversing AST in code generation"
+  fromPointer = (value) ->
+    if Array.isArray value then value[0] else value
+
+  #global = MAliceDataFlowAnalysis.matchAll addresscode.global, "list", undefined, (m, i) -> console.error "ERROR while traversing AST in code generation"
   #concat global,
-  MAliceCodeGeneration.matchAll addresscode.stack, "list", undefined, (m, i) -> console.error "ERROR while traversing AST in code generation"
+  MAliceDataFlowAnalysis.matchAll stack, "list", undefined, (m, i) -> console.error "ERROR while traversing AST in code generation"
 
   # Live Variable Analysis - Dataflow
   # ---------------------------------
@@ -149,11 +153,16 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
     return graph
 
   categorize = (graph) ->
+    log "categorize", graph, moves
     for temp, interferes of graph
       delete interferes.moves
-    for [a, b] in moves
-      graph[a].moves = true
-      graph[b].moves = true
+    moves = moves.filter ([a, b]) ->
+      if graph[a] and graph[b]
+        graph[a].moves = true
+        graph[b].moves = true
+        true
+      else
+        false
     return
 
   # Register Allocation - Graph Coloring
@@ -166,7 +175,7 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
       graph[x] = graph[x]?.filter (t) -> t isnt temp
     delete graph[temp]
 
-  simplify = (stack, graph, limit) ->
+  simplify = (stack, graph, limit, canCoalesce = yes) ->
     log "simplify", graph
     for temp, interferes of graph when not interferes.moves?
       if interferes.length < limit
@@ -174,24 +183,26 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
         log "simplify-remove", temp
         remove temp, graph
         return coalesce stack, graph, limit
-    return freeze stack, graph, limit
+    if canCoalesce
+      # Cannot simplify, but maybe can coalesce
+      return coalesce stack, graph, limit, no
+    else
+      return freeze stack, graph, limit
 
-  coalesce = (stack, graph, limit) ->
-    log "coalesce", graph
+  coalesce = (stack, graph, limit, canSimplify = yes) ->
+    log "coalesce", graph, moves
     for [a, b, node], i in moves
-      log "cooool", a, b
       coalescable = graph[a].every (t) ->
-        log "grapg of", t
         graph[t].length < limit or b in graph[t]
       if coalescable
         # Create new coalesced temporary
         newTemp = a + "," + b
-        graph[newTemp] = union graph[a], graph[b]
         # Replace old temporaries with the new joined one
         for temp, interferes of graph
           graph[temp] = graph[temp].map (x) ->
             if x in [a, b] then newTemp else x
-        # Delete old nodes
+        # Add new joined interference node and delete old nodes
+        graph[newTemp] = union graph[a], graph[b]
         delete graph[a]
         delete graph[b]
         # Replace old temporaries in moves
@@ -204,7 +215,11 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
         # Check if the new node still moves
         categorize graph
         return simplify stack, graph, limit
-    return freeze stack, graph, limit
+    if canSimplify
+      # Cannot coalesce, but maybe can simplify
+      return coalesce stack, graph, limit, no
+    else
+      return freeze stack, graph, limit
 
   freeze = (stack, graph, limit) ->
     for temp, interferes of graph when interferes.moves?
@@ -241,7 +256,36 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
 
   actualSpill = ->
 
+  coloring = simplify [], build(), 8
 
-  log simplify [], build(), 8
+
+  # Go through Three Address Code and replaces it according to Register Allocation
+
+  replaceNames = (node, number) ->
+    for temp, i in node[1..number]
+      node[1 + i] = "$#{coloring[fromPointer temp]}"
+
+  # Split back coalesced temporaries
+  for temp, register of coloring
+    for t in temp.split ','
+      coloring[t] = register
+
+  pos = 0
+  while pos < stack.length
+    [code, operands...] = node = stack[pos]
+    switch code
+      when 'Assignment'
+        # Check for removed moves
+        unless (moves.some ([a, b, moveNode]) -> moveNode is node)
+          stack.splice pos--, 1
+        replaceNames node, 2
+      when 'Label', 'Begin', 'End', 'Jump', 'Call'
+        null
+      # Binary
+      when 'ArrayAccess'
+        replaceNames node, 3
+      else
+        replaceNames node, 1
+    pos++
 
   return addresscode
