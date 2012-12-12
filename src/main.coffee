@@ -9,7 +9,7 @@ require './colorConsole'
 
 # Command options
 command
-  .version('MAlice Compiler in CoffeeScript and MetaCoffee, version 0.0.1')
+  .version('MAlice Compiler in CofeeScript and MetaCoffee, version 0.0.1')
   .usage('[options] <file ...>')
   .option('-t, --tree', 'print out syntax tree')
   .option('-S, --assembly', 'print out the generated assembly code')
@@ -17,23 +17,23 @@ command
 
 # Compile files
 metacoffee = require './loadMetaCoffee'
-metacoffee (parser, semantics, staticoptimization, translation, codeGeneration) ->
+metacoffee (parser, semantics, staticoptimization, translation, codeGeneration, code3) ->
   for file in command.args
     try
       sourceCode = fs.readFileSync file, 'utf8'
     catch e
       console.error "File '#{file}' couldn't be loaded!"
     if sourceCode?
-      unless command.tree or command.assembly
-        console.log "\nCompiling file '#{clc.greenBright file}'\n"
+      console.log "\nCompiling file '#{clc.greenBright file}'\n"
       syntaxTree = parser.parse sourceCode
       if typeof syntaxTree isnt "string"
         syntaxTree = semantics.analyze sourceCode, syntaxTree
         #syntaxTree = staticoptimization.optimize sourceCode, syntaxTree
-        #if command.tree
-        #  log syntaxTree
-        #  console.log "\n"
         syntaxTree = translation.translate sourceCode, syntaxTree
+        if command.tree
+          log syntaxTree
+          console.log "\n"
+        syntaxTree = code3.optimize syntaxTree
         if command.tree
           log syntaxTree
           console.log "\n"

@@ -9,4 +9,4 @@ colorize = (js) ->
 
 module.exports =
   log: (xs...) ->
-    console.log (xs.map (x) -> colorize dumper.parse x).join ","
+    console.error (xs.map (x) -> colorize dumper.parse x).join ","
