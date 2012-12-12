@@ -134,6 +134,14 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
 
   createBackLinks nodes
 
+  removeNode = (node) ->
+    for pred in node.prev
+      pred.next.splice pred.next.indexOf(node), 1
+      pred.next = union pred.next, node.next
+    for succ in node.next
+      succ.prev.splice succ.prev.indexOf(node), 1
+      succ.prev = union succ.prev, node.prev
+
 
   # Live Variable Analysis - Dataflow
   # ---------------------------------
@@ -144,8 +152,9 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
       result.push x
     result
 
-  difference = (a, b) ->
-    x for x in a when b.every ([yTemp]) -> yTemp isnt x[0]
+  difference = (a, b, different) ->
+    different ?= (elA, elB) -> elA isnt elB
+    x for x in a when b.every (y) -> different x, y
 
   solve = (nodes, fun) ->
     loop
@@ -156,9 +165,11 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
       lastCounter = counter
     return
 
+  nodeDifference = (a, b) -> difference a, b, ([out], [def]) -> out isnt def
+
   liveness = (nodes) ->
     solve nodes, (x) ->
-      x.livein  = union x.using, difference x.liveout, x.defines
+      x.livein  = union x.using, nodeDifference x.liveout, x.defines
       x.liveout = union (next.livein for next in x.next)...
       x.livein.length + x.liveout.length
 
@@ -212,25 +223,32 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
 
   coalesce = (stack, graph, limit, canSimplify = yes) ->
     log "coalesce", graph, moves
-    for [a, b, node], i in moves
+    for [a, b, node], i in moves when graph[a]? and graph[b]?
       coalescable = graph[a].every (t) ->
         graph[t].length < limit or b in graph[t]
       if coalescable
         # Create new coalesced temporary
         newTemp = a + "," + b
+        oldNames = [a, b]
+        log "coalescing into ", newTemp
         # Replace old temporaries with the new joined one
         for temp, interferes of graph
-          graph[temp] = graph[temp].map (x) ->
-            if x in [a, b] then newTemp else x
+          graph[temp] = graph[temp].map (old) ->
+            if old in oldNames then newTemp else old
         # Add new joined interference node and delete old nodes
         graph[newTemp] = union graph[a], graph[b]
         delete graph[a]
         delete graph[b]
+        # Replace old temporaries in interference lists on the stack
+        for [t, interference], si in stack
+          stack[si] = [t, interference.map (old) ->
+            if old in oldNames then newTemp else old
+          ]
         # Replace old temporaries in moves
         for move in moves
           [c, d] = move
-          move[0] = newTemp if c in [a, b]
-          move[1] = newTemp if d in [a, b]
+          move[0] = newTemp if c in oldNames
+          move[1] = newTemp if d in oldNames
         # Delete old move node
         moves.splice i, 1
         # Check if the new node still moves
@@ -260,10 +278,10 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
 
 
   select = (stack, graph, limit) ->
+    log "selecting from stack: ", stack
     [temp, _] = stack.pop()
     colors = {}
     colors[temp] = 0
-    log "stack", stack
     while stack.length > 0
       [temp, interferes] = stack.pop()
       for color in [0...limit]
@@ -281,12 +299,15 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
   allocateRegisters = (nodes, coloring) ->
 
     # Returns whether some operand is unused, hence if the node is dead code
-    replaceNames = (node, number) ->
-      for temp, i in node[1..number] by 1
-        if !coloring[fromPointer temp]?
-          return yes
-        node[1 + i] = "$#{coloring[fromPointer temp]}"
+    replaceName = (node, index) ->
+      temp = fromPointer node[index]
+      if temp?
+        return yes unless coloring[temp]?
+        node[index] = "$#{coloring[temp]}"
       return no
+
+    replaceNames = (node, number) ->
+      [1..number].some (index) -> replaceName node, index
 
     # Split back coalesced temporaries
     for temp, register of coloring
@@ -302,8 +323,11 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
           dead = replaceNames node, 2
           [_, to, from] = node
           dead or= to == from
-        when 'ArrayAccess', 'ImmAssignment'
+        when 'ArrayAccess'
           dead = replaceNames node, 3
+        when 'ImmAssignment'
+          #node = ['ImmAssignment', into, op, e1, e2?]
+          dead = [1, 3, 4].some (i) -> replaceName(node, i)
         else
           dead = replaceNames node, 1
           dead and= code isnt 'CallAssignment'
@@ -312,33 +336,39 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
 
   # Dead-code Elimination
   # ---------------------
-  ###for address in [nodes.length - 1..0]
-    [code, operands...] = node = nodes[address]
-    # Allocate registers
-    switch code
-      when 'Label', 'Begin', 'End', 'Jump', 'Call' then null
-      when 'Assignment'
-        dead = replaceNames node, 2
-        [_, to, from] = node
-        dead or= to == from
-      when 'ArrayAccess', 'ImmAssignment'
-        dead = replaceNames node, 3
+  deadCodeElimination = (nodes) ->
+    for node in nodes
+      [code, operands...] = node
+      switch code
+        when 'Label', 'Begin', 'End', 'Jump', 'Call' then null
+        when 'Assignment'
+          [into, e1, e2] = operands
+          if (node.liveout.every ([used]) -> used isnt into)
+            for e in [e1, e2] when e?
+              for x in nodes when not x.label?
+                for set in ['livein', 'liveout']
+                  x[set] = x[set].filter ([t, usenode]) ->
+                    t isnt e or usenode isnt node
+            node.eliminate = true
+    # Remove dead nodes
+    nodes = nodes.filter (node) ->
+      if node.eliminate?
+        removeNode node
+        false
       else
-        dead = replaceNames node, 1
-        dead and= code isnt 'CallAssignment'
-      # Remove node if dead code
-    nodes.splice address, 1 if dead###
+        true
+    return nodes
 
   # Perform register allocation:
   # ----------------------------
 
   nodes = addresscode.stack
   liveness nodes
-  #deadCodeElimination nodes
-
+  #nodes = deadCodeElimination nodes
   for x in nodes
     log x, x.livein, x.liveout
   coloring = simplify [], build(nodes), 8
+  log "coloring", coloring
   allocateRegisters nodes, coloring
 
   return addresscode
