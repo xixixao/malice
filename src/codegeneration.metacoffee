@@ -17,6 +17,8 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
     "r13"
     "r14"
     "r15"
+    "rdi"
+    "rsi"
   ]
 
   pushAll = ->
@@ -89,7 +91,7 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
          ["\tmov #{@accessVariable into}, #{value}"]
     CallAssignment :into :name :argumentCount
       -> ["\tcall #{name}",
-          "\tadd rsp, #{4 * argumentCount}",
+          "\tadd rsp, #{8 * argumentCount}",
           "\tmov #{@accessVariable into}, eax"]
     ImmAssignment :into :operator :e1 anything?:e2
       -> [""]
