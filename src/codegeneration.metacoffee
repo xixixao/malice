@@ -106,13 +106,14 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
                  "\tcall printf"],
                 popAll()
     Read :into :type
-      -> concat @formatString('rdi', type),
-                pushAll(),
+      -> [_, into] = into
+         concat pushAll(),
+                @formatString('rdi', type),
                 ["\tsub rsp, 8",
                  "\tmov rsi, rsp",
                  "\tmov eax, 0",
                  "\tcall scanf",
-                 "\tmov #{@accessVariable into}, rsp"]
+                 "\tmov #{@accessVariable into}, [rsp]"]
     initialize
       -> @registerCounter = 0
          @variables = {}
