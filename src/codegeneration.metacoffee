@@ -21,6 +21,18 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
     "rsi"
   ]
 
+  opInstructions =
+    '+': 'add'
+    '-': 'sub'
+    '*': 'imul'
+    '|': 'or'
+    '^': 'xor'
+    '&': 'and'
+
+  unaryOpInstructions =
+    '-': 'neg'
+    '~': 'not'
+
   pushAll = ->
     registers.map (register) -> "\tpush #{register}"
 
@@ -93,19 +105,20 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
       -> ["\tcall #{name}",
           "\tadd rsp, #{8 * argumentCount}",
           "\tmov #{@accessVariable into}, eax"]
-    ImmAssignment :into :operator :e1 anything?:e2
+    ImmAssignment :into :op :e1 anything?:e2
       -> e1 = e2 if e2?
-         if operator == '+'
-           ["\tadd #{@accessVariable into}, #{@accessVariable e1}"]
-         else if operator == '-'
-           ["\tsub #{@accessVariable into}, #{@accessVariable e1}"]
-         else if operator == '*'
-           ["\timul #{@accessVariable into}, #{@accessVariable e1}"]
-         else if operator == '/'
+         if op == '/'
            ["\tmov rax, #{@accessVariable into}",
             "\txor rdx, rdx",
             "\tidiv #{@accessVariable e1}",
             "\tmov #{@accessVariable into}, rax"]
+         else
+           if e2?
+             ["\t#{opInstructions[op]} #{@accessVariable into}, #{@accessVariable e1}"]
+           else
+             ["\tmov #{@accessVariable into}, #{@accessVariable e1}",
+              "\t#{unaryOpInstructions[op]} #{@accessVariable into}"]
+
 
     Return :result
       -> ["\tmov eax, #{@accessVariable result}",
