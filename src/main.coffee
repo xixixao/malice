@@ -12,6 +12,7 @@ command
   .version('MAlice Compiler in CofeeScript and MetaCoffee, version 0.0.1')
   .usage('[options] <file ...>')
   .option('-t, --tree', 'print out syntax tree')
+  .option('-S, --assembly', 'print out the generated assembly code')
   .parse(process.argv)
 
 # Compile files
@@ -35,6 +36,10 @@ metacoffee (parser, semantics, staticoptimization, translation, codeGeneration, 
         syntaxTree = code3.optimize syntaxTree
         if command.tree
           log syntaxTree
+          console.log "\n"
+        code = codeGeneration.generateCode syntaxTree
+        if command.assembly
+          console.log code
           console.log "\n"
       else
         console.error syntaxTree
