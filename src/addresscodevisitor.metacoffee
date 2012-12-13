@@ -4,6 +4,26 @@ errorHandler = require './errorprinter'
 
 module.exports = (OMeta, OMLib) -> optimize: (nodes) ->
 
+  # Machine given registers
+  registers = [
+    "$ax"
+    "$bx"
+    "$cx"
+    "$dx"
+    "$8"
+    "$9"
+    "$10"
+    "$11"
+    "$12"
+    "$13"
+    "$14"
+    "$15"
+    "$di"
+    "$si"
+  ]
+  # MAlice calling convention
+  returnRegister = "$ax"
+
   # Building Control Flow Graph
   # ---------------------------
 
@@ -113,8 +133,9 @@ module.exports = (OMeta, OMLib) -> optimize: (nodes) ->
       ->  addUsing node, array, index, value
 
     Return :node :result
-      ->  addUsing node, result
-          addLiveOut node, "$ax"
+      ->  #moves.push [returnRegister, result, node]
+          addUsing node, result
+          addLiveOut node, returnRegister
 
     Output :node :value :type cCall(node)
       ->  addUsing node, value
@@ -183,23 +204,6 @@ module.exports = (OMeta, OMLib) -> optimize: (nodes) ->
   # Deriving Interference Graph
   # ---------------------------
 
-  registers = [
-    "$ax"
-    "$bx"
-    "$cx"
-    "$dx"
-    "$8"
-    "$9"
-    "$10"
-    "$11"
-    "$12"
-    "$13"
-    "$14"
-    "$15"
-    "$di"
-    "$si"
-  ]
-
   precolored = for reg, i in registers
     node = ["Register #{reg}"]
     node.liveout = registers.map (r) -> [r]
@@ -248,13 +252,14 @@ module.exports = (OMeta, OMLib) -> optimize: (nodes) ->
 
   coalesce = (stack, graph, limit, canSimplify = yes) ->
     for [a, b, node], i in moves when graph[a]? and graph[b]?
-      coalescable = graph[a].every (t) ->
+      coalescable = not (a in graph[b])
+      coalescable and= graph[a].every (t) ->
         graph[t].length < limit or b in graph[t]
       if coalescable
         # Create new coalesced temporary
         newTemp = a + "," + b
         oldNames = [a, b]
-        #log "coalescing into ", newTemp
+        log "coalescing into ", newTemp
         # Replace old temporaries with the new joined one
         for temp, interferes of graph
           graph[temp] = graph[temp].map (old) ->
@@ -320,16 +325,12 @@ module.exports = (OMeta, OMLib) -> optimize: (nodes) ->
 
   allocateRegisters = (nodes, coloring) ->
 
-    # Returns whether some operand is unused, hence if the node is dead code
     replaceName = (node, index) ->
       temp = fromPointer node[index]
-      if temp?
-        return yes unless coloring[temp]?
-        node[index] = coloring[temp]
-      return no
+      node[index] = coloring[temp] if temp?
 
     replaceNames = (node, number) ->
-      [1..number].some (index) -> replaceName node, index
+      replaceName node, index for index in [1..number] by 1
 
     # Split back coalesced temporaries
     for temp, register of coloring
@@ -347,6 +348,11 @@ module.exports = (OMeta, OMLib) -> optimize: (nodes) ->
           [_, to, from] = node
           if to == from
             nodes.splice address, 1
+        #when 'Return'
+        #  replaceNames node, 1
+        #  [_, from] = node
+        #  if from == returnRegister
+        #    nodes.splice address, 1
         when 'ArrayAccess'
           replaceNames node, 3
         when 'ImmAssignment'
