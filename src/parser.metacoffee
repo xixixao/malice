@@ -60,8 +60,8 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
   #   is derived, to ignore MAlice comments.
   #
   ometa MAlice
-    program          = declarations:ds spaces end                     -> concat ['Program', at], ds
-    function         = (valueFunction | voidFunction):d               -> concat ['Function', at], d
+    program          = declarations:ds spaces end                     -> ['Program', at, ds]
+    function         = (valueFunction | voidFunction):d               -> [concat ['Function', at], d]
     valueFunction    = "The room"          identifier:i args:as
                        "contained a" type:returnType
                        block:b                                        -> [i, returnType, as, b]
@@ -70,14 +70,15 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     args             = "(" listOf('argDeclaration', ','):as ")"       -> concat ['Arguments', at], as
     argDeclaration   = eType:t identifier:n                           -> ['Argument', at, n, t]
     block            = "opened"
-                       (declarations:ds statements:ss)? "closed"      -> [dds, sss] = ds; ['Block', at, dds, concat(sss, [ss ? ['Skip']])]
-    declarations     = array:inits declaration(inits)*:ds             -> [concat(['Declarations', at], ds), concat(['Statements', at], inits)]
-    declaration :inits  = function
-                        | variable(inits):v terminator                -> v
-    variable :inits  = identifier:i "was a" type:t
-                       ("of" expression:e                             -> inits.push ['Assignment', at, ['Dereference', at, i], e]
-                        | "too")?                                     -> ['Variable', at, i, t]
-                     | identifier:i "had" expression:n type:t         -> ['Array', at, i, n, t]
+                       (declarations:ds statements:ss)? "closed"      -> ['Block', at, ds, ss ? ['Skip']]
+    declarations     = array:inits declaration*:ds                    -> concat ['Declarations', at], concat ds...
+    declaration      = function
+                     | variable:v terminator                          -> v
+    variable         = identifier:i "was a" type:t
+                       ( "of" expression:e                            -> [['Assignment', at, ['Dereference', at, i], e]]
+                       | "too"                                        -> [[]]
+                       )?:init                                        -> concat [['Variable', at, i, t]], init
+                     | identifier:i "had" expression:n type:t         -> [['Array', at, i, n, t]]
     statements       = statement+:ss                                  -> concat ['Statements', at], ss
     statement        = (assignment | saying | call):s terminator      -> s
                      | "."                                            -> ['Skip']

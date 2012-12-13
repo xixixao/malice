@@ -18,13 +18,14 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
     head = empty {log @input.head()} empty
          | {log "There's nothing here"} empty
 
-    Program :node :pos :scope enterScope(scope) trans:declarations trans:initializations
+    Program :node :pos :scope enterScope(scope) trans:declarations
       ->  hatta = scope.get 'hatta'
+          log "programs", declarations
           [freePushes, freePops] = @passFreeVariables hatta.scope()
           concat @functions..., [
             ['Label', 'main']
             ['Begin']
-          ], declarations, initializations, freePushes, [
+          ], declarations, freePushes, [
             ['Call', 'hatta', 0]
           ], freePops, [
             ['End', 'main']
@@ -36,7 +37,9 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
             scope.freeNames[freeName] = newFreeName
           return @declare(node, name)
     }:mangledName trans:body
-      ->  concat [['Label', mangledName], ['Begin']], args, body, [['End', mangledName]]
+      ->  decl = concat [['Label', mangledName], ['Begin']], args, body, [['End', mangledName]]
+          decl.function = true
+          decl
 
     Argument :node :pos :type :name
       ->  ['Argument', @declare(node, name), type]
@@ -45,9 +48,13 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
       ->  concat declarations, statements
 
     Declarations :node :pos trans*:ds
-      ->  for d in ds when d? and !d.simple?
-            @functions.push d
-          concat (d for d in ds when d? and d.simple?)...
+      ->  simples = []
+          for d in ds when d?
+            if d.function?
+              @functions.push d
+            else
+              simples = concat simples, d
+          simples
 
     Variable :node :pos :type :name
       ->  @declare(node, name)
@@ -56,6 +63,7 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
     Array :node :pos :type :name trans:size
       ->  [body, result] = size
           decl = concat body, [['Array', @declare(node, name), type, result]]
+          log "Log array", decl
           decl.simple = yes
           decl
 

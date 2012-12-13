@@ -118,7 +118,7 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
   ometa MAliceSemantics
     trans = [:t apply(t):ans] -> ans
 
-    Program :pos createScope:scope trans:declarations trans:initializations
+    Program :pos createScope:scope trans:declarations
       ->  hatta = scope.get 'hatta'
           if not hatta?
             error "The main function named 'hatta' was not declared."
@@ -127,7 +127,7 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
           else if not hatta.returnType().equals types.void
             error "The main function named 'hatta' cannot return a value. " +
                   "Instead, 'hatta' was declared to return '#{hatta.returnType()}'", hatta.returnType()
-          new Node 'Program', pos, scope, declarations, initializations
+          new Node 'Program', pos, scope, declarations
 
     Function :pos :name trans:returnType trans:args  {
         functionNode = @declare new FunctionNode 'Function', pos, types.function, name, returnType, args

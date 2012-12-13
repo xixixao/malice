@@ -67,7 +67,6 @@ module.exports = (OMeta, OMLib) -> optimize: (nodes) ->
 
   addLiveOut = (node, variables...) ->
     addDefines node, variables...
-    log "liveout", node,  variables
     variables.map (v) -> node.liveout.push [fromPointer v]
 
   # Fill information about instructions using firstAfter
@@ -102,7 +101,7 @@ module.exports = (OMeta, OMLib) -> optimize: (nodes) ->
       ->  addDefines node, name
 
     ArrayAccess :node :into :array :index :type assignment(node, into, array)
-      ->  addUsing node, index
+      ->  addUsing node, index, "$ax"
 
     Decrement :node :variable assignment(node, variable, variable)
     Increment :node :variable assignment(node, variable, variable)
@@ -138,7 +137,7 @@ module.exports = (OMeta, OMLib) -> optimize: (nodes) ->
             addUsing node, "$ax"
 
     ArrayAssignment :node :array :index :value :type
-      ->  addUsing node, array, index, value
+      ->  addUsing node, array, index, value, "$ax"
 
     Return :node :result
       ->  #moves.push [returnRegister, result, node]
@@ -152,7 +151,8 @@ module.exports = (OMeta, OMLib) -> optimize: (nodes) ->
       ->  addDefines node, into
 
     cCall :node
-      -> addUsing node, cCallerSaveRegisters...
+      ->  addDefines node, cCallerSaveRegisters...
+          addUsing node, cCallerSaveRegisters...
 
   fromPointer = (value) ->
     if Array.isArray value then value[0] else value
@@ -411,8 +411,8 @@ module.exports = (OMeta, OMLib) -> optimize: (nodes) ->
 #    liveness nodes
   nodes = removeDeadNodes nodes
   #log nodes
-  for x, i in nodes
-    log i, x[0], x.liveout
+  #for x, i in nodes
+  #  log i, x[0], x.liveout
   interferenceGraph = categorize build nodes, precolored
   log key, val for key, val of interferenceGraph when not (key in registers)
   log "MOVES", moves
