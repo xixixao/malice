@@ -24,6 +24,11 @@ module.exports = (OMeta, OMLib) -> optimize: (nodes) ->
   # MAlice calling convention
   returnRegister = "$ax"
 
+  # C calling convention
+  cReturnRegister = "$ax"
+  cCallerSaveRegisters = ["$ax", "$dx", "$di", "$si"
+                         "$cx", "$8", "$9", "$10", "$11"]
+
   # Building Control Flow Graph
   # ---------------------------
 
@@ -91,7 +96,7 @@ module.exports = (OMeta, OMLib) -> optimize: (nodes) ->
 
     Argument :node :name :type declaration(node, name)
     Array :node :name :type :size declaration(node, name)
-      ->  addUsing node, size
+      ->  addUsing node, size, cReturnRegister
 
     declaration :node :name
       ->  addDefines node, name
@@ -129,6 +134,8 @@ module.exports = (OMeta, OMLib) -> optimize: (nodes) ->
           addUsing node, e2 if e2?
           if operator is "/"
             addUsing node, "$ax", "$dx"
+          else if operator in ['==', '!=', '<=', '>=', '<', '>']
+            addUsing node "$ax"
 
     ArrayAssignment :node :array :index :value :type
       ->  addUsing node, array, index, value
@@ -145,8 +152,7 @@ module.exports = (OMeta, OMLib) -> optimize: (nodes) ->
       ->  addDefines node, into
 
     cCall :node
-      -> addUsing node, "$ax", "$dx", "$di", "$si"
-         addUsing node, "$cx", "$8", "$9", "$10", "$11"
+      -> addUsing node, cCallerSaveRegisters...
 
   fromPointer = (value) ->
     if Array.isArray value then value[0] else value
