@@ -2,9 +2,7 @@ errorHandler = require './errorprinter'
 {concat, join} = require './metaCoffeeUtils'
 {log} = require './utils'
 
-module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
-
-  nodes = addresscode.stack
+module.exports = (OMeta, OMLib) -> optimize: (nodes) ->
 
   # Building Control Flow Graph
   # ---------------------------
@@ -129,8 +127,6 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
   # Construct Control Flow Graph
   # ----------------------------
 
-  #global = MAliceDataFlowAnalysis.matchAll addresscode.global, "list", undefined, (m, i) -> console.error "ERROR while traversing AST in code generation"
-  #concat global,
   MAliceDataFlowAnalysis.matchAll nodes, "list", undefined, (m, i) -> console.error "ERROR while traversing AST in code generation"
 
   createBackLinks = (nodes) ->
@@ -389,7 +385,6 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
   # Perform register allocation:
   # ----------------------------
 
-  nodes = addresscode.stack
   liveness nodes
   while deadCodeElimination nodes
     liveness nodes
@@ -402,6 +397,4 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
   #log "coloring", coloring
   allocateRegisters nodes, coloring
 
-  addresscode.stack = nodes
-
-  return addresscode
+  return nodes
