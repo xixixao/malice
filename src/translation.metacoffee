@@ -20,7 +20,15 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
 
     Program :node :pos :scope enterScope(scope) trans:declarations trans:initializations
       ->  hatta = scope.get 'hatta'
-          concat @functions..., [['Label', 'main'], ['Begin']], declarations, initializations, [['Call', 'hatta', 0], ['End', 'main']]
+          [paramPushes, paramPops] = @passFreeVariables hatta.scope()
+          concat @functions..., [
+            ['Label', 'main']
+            ['Begin']
+          ], declarations, initializations, paramPushes, [
+            ['Call', 'hatta', 0]
+          ], paramPops, [
+            ['End', 'main']
+          ]
 
     Function :node :pos :type :name :returnType [trans*:args] :scope {
           for freeName, freeNode of scope.frees
@@ -88,12 +96,12 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
           ]
 
     Call :node :pos :detail trans:fun trans*:args
-      ->  [paramResults, paramPops] = @passFreeVariables node[3].original.scope()
+      ->  [paramPushes, paramPops] = @passFreeVariables node[3].original.scope()
           paramBodies = []
           paramBodies.push body... for [body, result] in args
           [_, name] = fun
           if detail is false
-            concat paramBodies, paramResults, [
+            concat paramBodies, paramPushes, [
               ['Call', name, args.length]
             ], paramPops
           else
@@ -212,12 +220,12 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
     name
 
   MAliceTranslator::passFreeVariables = (scope) ->
-    paramResults = []
+    paramPushes = []
     paramPops = []
     for freeName, freeNode of scope.frees
       [mangledName, _] = @currentScope.getNameOf freeNode.name()
-      paramResults.unshift ['Param', mangledName]
+      paramPushes.unshift ['Param', mangledName]
       paramPops.push ['ParamPop', mangledName]
-    [paramResults, paramPops]
+    [paramPushes, paramPops]
 
   MAliceTranslator.match ast, "trans", undefined, (m, i) -> console.error "ERROR while traversing AST in translator"
