@@ -33,6 +33,14 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
     '-': 'neg'
     '~': 'not'
 
+  cmpOpInstructions =
+    '==': 'sete'
+    '!=': 'setne'
+    '<=': 'setle'
+    '>=': 'setge'
+    '<' : 'setl'
+    '>' : 'setg'
+
   pushAll = ->
     registers.map (register) -> "\tpush #{register}"
 
@@ -61,10 +69,10 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
     Array :name :type :size
       -> [""]
     IfFalse :condition :jumpto
-      -> ["\tcmp #{condition}, 0",
-          "je #{jumpto}"]
+      -> ["\tcmp #{@accessVariable condition}, 0",
+          "\tje #{jumpto}"]
     IfTrue :condition :jumpto
-      -> ["\tcmp #{condition}, 0",
+      -> ["\tcmp #{@accessVariable condition}, 0",
           "\tjne #{jumpto}"]
     Jump :to
       -> ["\tjmp #{to}"]
@@ -112,6 +120,10 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
             "\txor rdx, rdx",
             "\tidiv #{@accessVariable e1}",
             "\tmov #{@accessVariable into}, rax"]
+         if op in ['==', '!=', '<=', '>=', '<', '>']
+           ["\tcmp #{@accessVariable into}, #{@accessVariable e1}",
+            "\t#{cmpOpInstructions[op]} al",
+            "\tmovzx #{@accessVariable into}, al"]
          else
            if e2?
              ["\t#{opInstructions[op]} #{@accessVariable into}, #{@accessVariable e1}"]
@@ -130,8 +142,7 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
                  "\tcall printf"],
                 popAll()
     Read :into :type
-      -> [_, into] = into
-         concat pushAll(),
+      -> concat pushAll(),
                 @formatString('rdi', type),
                 ["\tsub rsp, 8",
                  "\tmov rsi, rsp",
@@ -179,7 +190,8 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
     output.push '.text'
     output.push '\t.globl main'
     output = concat output, (concat instructions...)
-    output.join '\n'
+    output = output.join '\n'
+    output + '\n'
 
     #global = MAliceCodeGeneration.matchAll ast.global, "list", undefined, (m, i) -> console.error "ERROR while traversing AST in code generation"
   MAliceCodeGeneration.matchAll ast.stack, "list", undefined, (m, i) -> console.error "ERROR while traversing AST in code generation"
