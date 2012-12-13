@@ -1,9 +1,13 @@
-
-
-The looking-glass hatta ()
-opened
-  arr had 6 number.
-  arr's 2 piece became 3.
-  arr's 2 piece said Alice.
-
+The looking-glass hatta() opened
+arr had 5 number.
+i was a number of 0.
+eventually (i == 5) because
+arr's i piece became i.
+i ate.
+enough times
+i became 0.
+eventually (i == 5) because
+arr's i piece spoke.
+i ate.
+enough times
 closed

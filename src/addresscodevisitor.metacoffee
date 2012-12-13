@@ -135,7 +135,7 @@ module.exports = (OMeta, OMLib) -> optimize: (nodes) ->
           if operator is "/"
             addUsing node, "$ax", "$dx"
           else if operator in ['==', '!=', '<=', '>=', '<', '>']
-            addUsing node "$ax"
+            addUsing node, "$ax"
 
     ArrayAssignment :node :array :index :value :type
       ->  addUsing node, array, index, value
