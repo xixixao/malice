@@ -151,8 +151,7 @@ module.exports = (OMeta, OMLib) -> optimize: (nodes) ->
       ->  addDefines node, into
 
     cCall :node
-      ->  addDefines node, cCallerSaveRegisters...
-          addUsing node, cCallerSaveRegisters...
+      ->  addLiveOut node, cCallerSaveRegisters...
 
   fromPointer = (value) ->
     if Array.isArray value then value[0] else value
