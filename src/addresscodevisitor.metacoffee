@@ -121,6 +121,7 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
 
     cCall :node
       -> addDefines node, "$ax", "$dx", "$di", "$si"
+         addDefines node, "$cx", "$8", "$9", "$10", "$11"
 
   fromPointer = (value) ->
     if Array.isArray value then value[0] else value
@@ -291,9 +292,8 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
     return spill stack, graph, limit
 
   spill = (stack, graph, limit) ->
-    for temp, interferes of graph when not temp in registers
+    for temp, interferes of graph when not (temp in registers)
       stack.push [temp, interferes]
-      #log "spill", temp
       remove temp, graph
       return simplify stack, graph, limit
     return select stack, graph, limit
@@ -302,14 +302,14 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
   select = (stack, graph, limit) ->
     colors = {}
     for reg in registers
-      colors[reg] = registers
+      colors[reg] = reg
     while stack.length > 0
       [temp, interferes] = stack.pop()
       for color in registers
         if (interferes.every (x) -> colors[x] isnt color)
           colors[temp] = color
           break
-      if color is limit
+      if not colors[temp]?
         log  "actual spill": temp
     return colors
 
@@ -399,7 +399,7 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
     #log i, x[0], x.removed, x.liveout
   interferenceGraph = categorize build nodes, precolored
   coloring = simplify [], interferenceGraph, registers.length
-  log "coloring", coloring
+  #log "coloring", coloring
   allocateRegisters nodes, coloring
 
   addresscode.stack = nodes
