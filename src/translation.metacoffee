@@ -137,8 +137,9 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
 
     Until :node :pos :returns trans:cond trans:body
       ->  [condbody, condresult] = cond
-          concat condbody, [
+          concat [
             ['Label', whileLabel = @newLabel()]
+          ], condbody, [
             ['IfTrue', condresult, endLabel = @newLabel()]
           ], body, [
             ['Jump', whileLabel]
