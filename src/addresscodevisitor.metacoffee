@@ -393,6 +393,7 @@ module.exports = (OMeta, OMLib) -> optimize: (nodes) ->
         when 'ParamPop'
           if shouldBeEliminated node, nodes
             node.useless = true
+            node.push true
             return true
         else
           return true if shouldBeEliminated node, nodes
@@ -406,17 +407,17 @@ module.exports = (OMeta, OMLib) -> optimize: (nodes) ->
   # ----------------------------
 
   liveness nodes
-#  while deadCodeElimination nodes
-#    liveness nodes
+  while deadCodeElimination nodes
+    liveness nodes
   nodes = removeDeadNodes nodes
   #log nodes
   #for x, i in nodes
   #  log i, x[0], x.liveout
   interferenceGraph = categorize build nodes, precolored
-  log key, val for key, val of interferenceGraph when not (key in registers)
-  log "MOVES", moves
+  #log key, val for key, val of interferenceGraph when not (key in registers)
+  #log "MOVES", moves
   coloring = simplify [], interferenceGraph, registers.length
-  log "coloring", coloring
+  #log "coloring", coloring
   allocateRegisters nodes, coloring
 
   return nodes
