@@ -127,7 +127,7 @@ module.exports = (OMeta, OMLib) -> optimize: (nodes) ->
           addUsing node, e1
           addUsing node, e2 if e2?
           if operator is "/"
-            addLiveOut node, "$ax", "$dx"
+            addUsing node, "$ax", "$dx"
 
     ArrayAssignment :node :array :index :value
       ->  addUsing node, array, index, value
@@ -252,9 +252,10 @@ module.exports = (OMeta, OMLib) -> optimize: (nodes) ->
 
   coalesce = (stack, graph, limit, canSimplify = yes) ->
     for [a, b, node], i in moves when graph[a]? and graph[b]?
+      log "trying coalesce", [a, b]
       coalescable = not (a in graph[b])
       coalescable and= graph[a].every (t) ->
-        graph[t].length < limit or b in graph[t]
+        t in registers or graph[t].length < limit or b in graph[t]
       if coalescable
         # Create new coalesced temporary
         newTemp = a + "," + b
@@ -397,14 +398,15 @@ module.exports = (OMeta, OMLib) -> optimize: (nodes) ->
   # ----------------------------
 
   liveness nodes
-  while deadCodeElimination nodes
-    liveness nodes
+#  while deadCodeElimination nodes
+#    liveness nodes
   nodes = removeDeadNodes nodes
   #log nodes
   for x, i in nodes
     log i, x[0], x.liveout
   interferenceGraph = categorize build nodes, precolored
   log key, val for key, val of interferenceGraph when not (key in registers)
+  log "MOVES", moves
   coloring = simplify [], interferenceGraph, registers.length
   #log "coloring", coloring
   allocateRegisters nodes, coloring
