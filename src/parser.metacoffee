@@ -70,13 +70,13 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     args             = "(" listOf('argDeclaration', ','):as ")"       -> concat ['Arguments', at], as
     argDeclaration   = eType:t identifier:n                           -> ['Argument', at, n, t]
     block            = "opened"
-                       (declarations:ds statements:ss)? "closed"      -> ['Block', at, ds, ss ? ['Skip']]
+                       (declarations:ds statements:ss)? "closed"      -> ['Block', at, ds, ss ? ['Statements', at]]
     declarations     = array:inits declaration*:ds                    -> concat ['Declarations', at], concat ds...
     declaration      = function
                      | variable:v terminator                          -> v
     variable         = identifier:i "was a" type:t
                        ( "of" expression:e                            -> [['Assignment', at, ['Dereference', at, i], e]]
-                       | "too"                                        -> [[]]
+                       | "too"                                        -> []
                        )?:init                                        -> concat [['Variable', at, i, t]], init
                      | identifier:i "had" expression:n type:t         -> [['Array', at, i, n, t]]
     statements       = statement+:ss                                  -> concat ['Statements', at], ss
