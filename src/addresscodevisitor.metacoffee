@@ -40,6 +40,11 @@ module.exports = (OMeta, OMLib) -> optimize: (nodes) ->
   addUsing = (node, variables...) ->
     variables.map (v) -> node.using.push [fromPointer(v), node]
 
+  addLiveOut = (node, variables...) ->
+    addDefines node, variables...
+    log "liveout", node,  variables
+    variables.map (v) -> node.liveout.push [fromPointer v]
+
   # Fill information about instructions using firstAfter
   moves = []
   ometa MAliceDataFlowAnalysis
@@ -102,14 +107,14 @@ module.exports = (OMeta, OMLib) -> optimize: (nodes) ->
           addUsing node, e1
           addUsing node, e2 if e2?
           if operator is "/"
-            addDefines node, "$ax", "$dx"
+            addLiveOut node, "$ax", "$dx"
 
     ArrayAssignment :node :array :index :value
       ->  addUsing node, array, index, value
 
     Return :node :result
       ->  addUsing node, result
-          addDefines node, "$ax"
+          addLiveOut node, "$ax"
 
     Output :node :value :type cCall(node)
       ->  addUsing node, value
@@ -118,8 +123,8 @@ module.exports = (OMeta, OMLib) -> optimize: (nodes) ->
       ->  addDefines node, into
 
     cCall :node
-      -> addDefines node, "$ax", "$dx", "$di", "$si"
-         addDefines node, "$cx", "$8", "$9", "$10", "$11"
+      -> addLiveOut node, "$ax", "$dx", "$di", "$si"
+         addLiveOut node, "$cx", "$8", "$9", "$10", "$11"
 
   fromPointer = (value) ->
     if Array.isArray value then value[0] else value
@@ -172,7 +177,7 @@ module.exports = (OMeta, OMLib) -> optimize: (nodes) ->
   liveness = (nodes) ->
     solve nodes, (x) ->
       x.livein  = union x.using, nodeDifference x.liveout, x.defines
-      x.liveout = union (next.livein for next in x.next)...
+      x.liveout = union x.liveout, (next.livein for next in x.next)...
       x.livein.length + x.liveout.length
 
   # Deriving Interference Graph
@@ -389,10 +394,11 @@ module.exports = (OMeta, OMLib) -> optimize: (nodes) ->
   while deadCodeElimination nodes
     liveness nodes
   nodes = removeDeadNodes nodes
-  log nodes
-  #for x, i in nodes
-    #log i, x[0], x.removed, x.liveout
+  #log nodes
+  for x, i in nodes
+    log i, x[0], x.liveout
   interferenceGraph = categorize build nodes, precolored
+  log key, val for key, val of interferenceGraph when not (key in registers)
   coloring = simplify [], interferenceGraph, registers.length
   #log "coloring", coloring
   allocateRegisters nodes, coloring
