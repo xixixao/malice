@@ -1,5 +1,6 @@
 errorHandler = require './errorprinter'
 {concat} = require './metaCoffeeUtils'
+{log} = require './utils'
 {types} = require './nodes'
 
 module.exports = (OMeta, OMLib) -> generateCode: (threeCode) ->
@@ -109,12 +110,13 @@ module.exports = (OMeta, OMLib) -> generateCode: (threeCode) ->
           "\tmov #{@accessVariable into}, rax"]
     ImmAssignment :into :op :e1 anything?:e2
       -> e1 = e2 if e2?
+         log op
          if op == '/'
            ["\tmov rax, #{@accessVariable into}",
             "\txor rdx, rdx",
             "\tidiv #{@accessVariable e1}",
             "\tmov #{@accessVariable into}, rax"]
-         if op in ['==', '!=', '<=', '>=', '<', '>']
+         else if op in ['==', '!=', '<=', '>=', '<', '>']
            ["\tcmp #{@accessVariable into}, #{@accessVariable e1}",
             "\t#{cmpOpInstructions[op]} al",
             "\tmovzx #{@accessVariable into}, al"]
