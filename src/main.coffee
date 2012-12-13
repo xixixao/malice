@@ -50,7 +50,7 @@ metacoffee (parser, semantics, staticoptimization, translation, codeGeneration, 
           console.error stderr
           if error
             console.error "error: #{error}"
-          exec 'gcc lib/read.c out.o -o out', (error, stdout, stderr) ->
+          exec 'gcc lib/utils.c out.o -o out', (error, stdout, stderr) ->
             console.log stdout
             console.error stderr
             if error
