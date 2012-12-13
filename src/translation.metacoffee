@@ -47,7 +47,7 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
     Declarations :node :pos trans*:ds
       ->  for d in ds when d? and !d.simple?
             @functions.push d
-          d[0] for d in ds when d?.simple?
+          concat (d for d in ds when d? and d.simple?)...
 
     Variable :node :pos :type :name
       ->  @declare(node, name)
