@@ -105,7 +105,7 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
               ['Call', name, args.length]
             ], paramPops
           else
-            [concat(call, [
+            [concat(paramBodies, paramPushes, [
               ['CallAssignment', callResult = @newTemp(), name, args.length]
             ], paramPops), callResult]
 
