@@ -42,9 +42,8 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
           d[0] for d in ds when d.simple?
 
     Variable :node :pos :type :name
-      ->  decl = [['Variable', name = @declare(node, name), type]]
-          decl.simple = yes
-          decl
+      ->  @declare(node, name)
+          []
 
     Array :node :pos :type :name trans:size
       ->  [body, result] = size
