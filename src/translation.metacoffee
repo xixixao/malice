@@ -26,9 +26,9 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
       for freeName, freeNode of scope.frees
         args.push ['Argument', [newFreeName = @declare(null, freeName)], freeNode.type()]
         scope.freeNames[freeName] = newFreeName
-    } trans:body
-      ->  name = @declare(node, name)
-          concat [['Label', name], ['Begin']], args, body, [['End', name]]
+      return @declare(node, name)
+    }:mangledName trans:body
+      ->  concat [['Label', mangledName], ['Begin']], args, body, [['End', mangledName]]
 
     Argument :node :pos :type :name
       ->  ['Argument', @declare(node, name), type]
