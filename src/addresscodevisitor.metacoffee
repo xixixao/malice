@@ -377,7 +377,7 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
         when 'ParamPop'
           if shouldBeEliminated node, nodes
             node.useless = true
-          return true
+            return true
         else
           return true if shouldBeEliminated node, nodes
     return false
