@@ -67,7 +67,6 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
       ->  node.next = [firstAfter[to]]
 
     Argument :node :name :type declaration(node, name)
-    Variable :node :name :type declaration(node, name)
     Array :node :name :type :size declaration(node, name)
 
     declaration :node :name
@@ -104,18 +103,24 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
       ->  addDefines node, into
           addUsing node, e1
           addUsing node, e2 if e2?
+          if operator is "/"
+            addDefines node, "$ax", "$dx"
 
     ArrayAssignment :node :array :index :value
       ->  addUsing node, array, index, value
 
     Return :node :result
       ->  addUsing node, result
+          addDefines node, "$ax"
 
-    Output :node :value :type
+    Output :node :value :type cCall(node)
       ->  addUsing node, value
 
-    Read :node :into :type
+    Read :node :into :type cCall(node)
       ->  addDefines node, into
+
+    cCall :node
+      -> addDefines node, "$ax", "$dx", "$di", "$si"
 
   fromPointer = (value) ->
     if Array.isArray value then value[0] else value
@@ -176,12 +181,33 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
   # Deriving Interference Graph
   # ---------------------------
 
-  build = (nodes) ->
+  registers = [
+    "$ax"
+    "$bx"
+    "$cx"
+    "$dx"
+    "$8"
+    "$9"
+    "$10"
+    "$11"
+    "$12"
+    "$13"
+    "$14"
+    "$15"
+    "$di"
+    "$si"
+  ]
+
+  precolored = for reg, i in registers
+    node = ["Register #{reg}"]
+    node.liveout = registers.map (r) -> [r]
+    node
+
+  build = (nodes, precolored) ->
     graph = {}
-    for x in nodes when not x.label?
+    for x in concat precolored, nodes when not x.label?
       for [v] in x.liveout
         graph[v] = union (graph[v] ? []), x.liveout.map ([v2]) -> v2
-    log "built: ", graph
     return graph
 
   categorize = (graph) ->
@@ -194,7 +220,7 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
         true
       else
         false
-    return
+    return graph
 
   # Register Allocation - Graph Coloring
   # ------------------------------------
@@ -206,10 +232,10 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
     delete graph[temp]
 
   simplify = (stack, graph, limit, canCoalesce = yes) ->
-    for temp, interferes of graph when not interferes.moves?
+    for temp, interferes of graph when not (interferes.moves? or temp in registers)
       if interferes.length < limit
         stack.push [temp, interferes]
-        log "simplify-remove", temp
+        #log "simplify-remove", temp
         remove temp, graph
         return coalesce stack, graph, limit
     if canCoalesce
@@ -226,7 +252,7 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
         # Create new coalesced temporary
         newTemp = a + "," + b
         oldNames = [a, b]
-        log "coalescing into ", newTemp
+        #log "coalescing into ", newTemp
         # Replace old temporaries with the new joined one
         for temp, interferes of graph
           graph[temp] = graph[temp].map (old) ->
@@ -265,9 +291,9 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
     return spill stack, graph, limit
 
   spill = (stack, graph, limit) ->
-    for temp, interferes of graph
+    for temp, interferes of graph when not temp in registers
       stack.push [temp, interferes]
-      log "spill", temp
+      #log "spill", temp
       remove temp, graph
       return simplify stack, graph, limit
     return select stack, graph, limit
@@ -275,9 +301,11 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
 
   select = (stack, graph, limit) ->
     colors = {}
+    for reg in registers
+      colors[reg] = registers
     while stack.length > 0
       [temp, interferes] = stack.pop()
-      for color in [0...limit]
+      for color in registers
         if (interferes.every (x) -> colors[x] isnt color)
           colors[temp] = color
           break
@@ -296,7 +324,7 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
       temp = fromPointer node[index]
       if temp?
         return yes unless coloring[temp]?
-        node[index] = "$#{coloring[temp]}"
+        node[index] = coloring[temp]
       return no
 
     replaceNames = (node, number) ->
@@ -313,42 +341,49 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
       switch code
         when 'Label', 'Begin', 'End', 'Jump', 'Call' then null
         when 'Assignment'
-          dead = replaceNames node, 2
+          replaceNames node, 2
+          # Remove Assignment if useless
           [_, to, from] = node
-          dead or= to == from
+          if to == from
+            nodes.splice address, 1
         when 'ArrayAccess'
-          dead = replaceNames node, 3
+          replaceNames node, 3
         when 'ImmAssignment'
-          #node = ['ImmAssignment', into, op, e1, e2?]
-          dead = [1, 3, 4].some (i) -> replaceName(node, i)
+          # ['ImmAssignment', into, op, e1, e2?]
+          [1, 3, 4].map (i) -> replaceName node, i
         else
-          dead = replaceNames node, 1
-          dead and= code isnt 'CallAssignment'
-        # Remove node if dead code
-      nodes.splice address, 1 if dead
+           replaceNames node, 1
 
   # Dead-code Elimination
   # ---------------------
+  shouldBeEliminated = (node, nodes) ->
+    for defined in node.defines when not (fromPointer(defined) in registers)
+      defined = fromPointer defined
+      if (node.liveout.every ([used]) -> used isnt defined)
+        for use in node.using
+          for x in nodes when not x.label?
+            for set in ['livein', 'liveout']
+              x[set] = x[set].filter (xUse) -> xUse isnt use
+        removeNode node
+        log "Dead ", node
+        return node.removed = true
+    false
+
   deadCodeElimination = (nodes) ->
     for node in nodes when not node.removed?
       [code, operands...] = node
       switch code
         when 'Label', 'Begin', 'End', 'Jump', 'Call' then null
+        when 'ParamPop'
+          if shouldBeEliminated node, nodes
+            node.useless = true
+          return true
         else
-          for defined in node.defines
-            defined = fromPointer defined
-            if (node.liveout.every ([used]) -> used isnt defined)
-              for use in node.using
-                for x in nodes when not x.label?
-                  for set in ['livein', 'liveout']
-                    x[set] = x[set].filter (xUse) -> xUse isnt use
-              removeNode node
-              log "Removving ", node
-              return node.removed = true
+          return true if shouldBeEliminated node, nodes
     return false
 
   removeDeadNodes = (nodes) ->
-    nodes.filter (node) -> not node.removed?
+    nodes.filter (node) -> not node.removed? or node.useless?
 
 
   # Perform register allocation:
@@ -359,9 +394,11 @@ module.exports = (OMeta, OMLib) -> optimize: (addresscode) ->
   while deadCodeElimination nodes
     liveness nodes
   nodes = removeDeadNodes nodes
-  for x, i in nodes
-    log i, x[0], x.removed, x.liveout
-  coloring = simplify [], build(nodes), 14
+  log nodes
+  #for x, i in nodes
+    #log i, x[0], x.removed, x.liveout
+  interferenceGraph = categorize build nodes, precolored
+  coloring = simplify [], interferenceGraph, registers.length
   log "coloring", coloring
   allocateRegisters nodes, coloring
 
