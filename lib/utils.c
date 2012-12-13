@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include "utils.h"
 
 char *read() {
   char *s = (char *)alloc_c(200);

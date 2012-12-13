@@ -6,6 +6,6 @@ char *read();
 
 // dynamically allocate an array of given size
 void *alloc_c(int size);
-void  *alloc_i(int size);
+void *alloc_i(int size);
 
 #endif
