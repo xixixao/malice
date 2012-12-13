@@ -16,12 +16,6 @@ command
   .option('-S, --assembly', 'print out the generated assembly code')
   .parse(process.argv)
 
-logAll = (error, stdout, stderr) ->
-  console.log stdout
-  console.error stderr
-  if error
-    console.error "error: #{error}"
-
 # Compile files
 metacoffee = require './loadMetaCoffee'
 metacoffee (parser, semantics, staticoptimization, translation, codeGeneration, code3) ->
@@ -51,7 +45,16 @@ metacoffee (parser, semantics, staticoptimization, translation, codeGeneration, 
           console.log "\n"
           return
         fs.writeFileSync 'out.s', code
-        exec 'as out.s -o out.o', logAll
-        exec 'gcc out.o -o out', logAll
+        exec 'as out.s -o out.o', (error, stdout, stderr) ->
+          console.log stdout
+          console.error stderr
+          if error
+            console.error "error: #{error}"
+          exec 'gcc out.o -o out', (error, stdout, stderr) ->
+            console.log stdout
+            console.error stderr
+            if error
+              console.error "error: #{error}"
+
       else
         console.error syntaxTree
