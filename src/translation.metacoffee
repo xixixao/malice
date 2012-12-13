@@ -20,13 +20,13 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
 
     Program :node :pos :scope enterScope(scope) trans:declarations trans:initializations
       ->  hatta = scope.get 'hatta'
-          [paramPushes, paramPops] = @passFreeVariables hatta.scope()
+          [freePushes, freePops] = @passFreeVariables hatta.scope()
           concat @functions..., [
             ['Label', 'main']
             ['Begin']
-          ], declarations, initializations, paramPushes, [
+          ], declarations, initializations, freePushes, [
             ['Call', 'hatta', 0]
-          ], paramPops, [
+          ], freePops, [
             ['End', 'main']
           ]
 
@@ -96,18 +96,22 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
           ]
 
     Call :node :pos :detail trans:fun trans*:args
-      ->  [paramPushes, paramPops] = @passFreeVariables node[3].original.scope()
+      ->  [freePushes, freePops] = @passFreeVariables node[3].original.scope()
+          paramPushes = []
           paramBodies = []
-          paramBodies.push body... for [body, result] in args
+          for [body, result] in args
+            paramPushes.unshift ['Param', result]
+            paramBodies.push body...
+          beforeCall = concat paramBodies, freePushes, paramPushes
           [_, name] = fun
           if detail is false
-            concat paramBodies, paramPushes, [
+            concat beforeCall, [
               ['Call', name, args.length]
-            ], paramPops
+            ], freePops
           else
-            [concat(paramBodies, paramPushes, [
+            [concat(beforeCall, [
               ['CallAssignment', callResult = @newTemp(), name, args.length]
-            ], paramPops), callResult]
+            ], freePops), callResult]
 
 
     Return :node :pos :returns trans:value
@@ -220,12 +224,12 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
     name
 
   MAliceTranslator::passFreeVariables = (scope) ->
-    paramPushes = []
-    paramPops = []
+    freePushes = []
+    freePops = []
     for freeName, freeNode of scope.frees
       [mangledName, _] = @currentScope.getNameOf freeNode.name()
-      paramPushes.unshift ['Param', mangledName]
-      paramPops.push ['ParamPop', mangledName]
-    [paramPushes, paramPops]
+      freePushes.unshift ['Param', mangledName]
+      freePops.push ['ParamPop', mangledName]
+    [freePushes, freePops]
 
   MAliceTranslator.match ast, "trans", undefined, (m, i) -> console.error "ERROR while traversing AST in translator"
