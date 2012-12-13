@@ -127,8 +127,6 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
            else
              ["\tmov #{@accessVariable into}, #{@accessVariable e1}",
               "\t#{unaryOpInstructions[op]} #{@accessVariable into}"]
-
-
     Return :result
       -> ["\tmov rax, #{@accessVariable result}"]
     Output :value :type
@@ -139,13 +137,19 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
                  "\tcall printf"],
                 popAll()
     Read :into :type
-      -> concat pushAll(),
-                ["\tmov rdi, #{@formatString type}",
-                 "\tsub rsp, 8",
-                 "\tmov rsi, rsp",
-                 "\tmov eax, 0",
-                 "\tcall scanf",
-                 "\tmov #{@accessVariable into}, [rsp]"]
+      -> if type.equals types.sentence
+           readInstructions = ["\tcall read"]
+         else
+           readInstructions = ["\tmov rdi, #{@formatString type}",
+                               "\tsub rsp, 8",
+                               "\tmov rsi, rsp",
+                               "\tmov eax, 0",
+                               "\tcall scanf",
+                               "\tmov rax, [rsp]"]
+         concat pushAll(),
+                readInstructions,
+                popAll(),
+                ["\tmov #{@accessVariable into}, rax"]
     initialize
       -> @registerCounter = 0
          @variables = {}
