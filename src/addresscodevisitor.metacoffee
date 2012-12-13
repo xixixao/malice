@@ -131,7 +131,7 @@ module.exports = (OMeta, OMLib) -> optimize: (nodes) ->
       ->  addDefines node, into
           addUsing node, e1
           addUsing node, e2 if e2?
-          if operator is "/"
+          if operator in ["/", "%"]
             addUsing node, "$ax", "$dx"
           else if operator in ['==', '!=', '<=', '>=', '<', '>']
             addUsing node, "$ax"
