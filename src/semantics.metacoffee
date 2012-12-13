@@ -322,8 +322,11 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
       @frees[node.name()] = node
 
     expandFree: (frees) ->
-      for name, free of frees when @declarations[name] isnt free
-        @addFree free
+      if @frees?
+        for name, free of frees when @declarations[name] isnt free
+          @addFree free
+      else
+        @outer.expandFree frees
 
     returns: (type) ->
       if type?
