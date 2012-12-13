@@ -19,8 +19,7 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
          | {log "There's nothing here"} empty
 
     Program :node :pos :scope enterScope(scope) trans:declarations trans:initializations
-      ->  global: concat declarations, initializations
-          stack: concat @functions...
+      ->  concat @functions, [concat [['Label', 'main'], ['Begin']], declarations, initializations, [['End', 'main']]]
 
     Function :node :pos :type :name :returnType [trans*:args] :scope {
       for freeName, freeNode of scope.frees
@@ -37,13 +36,13 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
       ->  concat declarations, statements
 
     Declarations :node :pos trans*:ds
-      ->  for d in ds when !d.simple?
+      ->  for d in ds when d? and !d.simple?
             @functions.push d
-          d[0] for d in ds when d.simple?
+          d[0] for d in ds when d?.simple?
 
     Variable :node :pos :type :name
       ->  @declare(node, name)
-          []
+          undefined
 
     Array :node :pos :type :name trans:size
       ->  [body, result] = size
@@ -213,8 +212,8 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
     "t" + @tempCounter++
 
   MAliceTranslator::declare = (node, name) ->
-    if name is "hatta" and node?.scope?().outer and not node?.scope?().outer.outer?
-      return "main"
+    #if name is "hatta" and node?.scope?().outer and not node?.scope?().outer.outer?
+    #  return "main"
     origName = name
     if @names[name]
       name = origName + Math.floor(Math.random() * 999) while @names[name]
