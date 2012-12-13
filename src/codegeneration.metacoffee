@@ -64,8 +64,6 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
          @liftedArguments = []
          concat args, ['\tleave',
                        '\tret']
-    Variable :name :type
-      -> [""]
     Array :name :type :size
       -> [""]
     IfFalse :condition :jumpto
@@ -104,8 +102,7 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
       -> ["\tmov [#{@accessVariable into}], #{@accessVariable from}"]
     ValAssignment :into :value :type
       -> if type.equals types.sentence
-           @storeInData into, value
-           return []
+           return ["\tmov #{@accessVariable into}, #{@accessData value}"]
          if type.equals types.letter
            value = value.charCodeAt 0
          ["\tmov #{@accessVariable into}, #{value}"]
@@ -135,16 +132,16 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
     Return :result
       -> ["\tmov rax, #{@accessVariable result}"]
     Output :value :type
-      -> concat @formatString('rdi', type),
-                pushAll(),
-                ["\tmov rsi, #{@accessVariable value}",
+      -> concat pushAll(),
+                ["\tmov rdi, #{@formatString type}",
+                 "\tmov rsi, #{@accessVariable value}",
                  "\tmov eax, 0",
                  "\tcall printf"],
                 popAll()
     Read :into :type
       -> concat pushAll(),
-                @formatString('rdi', type),
-                ["\tsub rsp, 8",
+                ["\tmov rdi, #{@formatString type}",
+                 "\tsub rsp, 8",
                  "\tmov rsi, rsp",
                  "\tmov eax, 0",
                  "\tcall scanf",
@@ -153,12 +150,8 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
       -> @registerCounter = 0
          @variables = {}
          @data = []
-         @dataCount = 0
          @liftedArguments = []
          @argumentCount = 0
-         @storeInData '_charFormat', '%c'
-         @storeInData '_stringFormat', '%s'
-         @storeInData '_numberFormat', '%d'
 
   MAliceCodeGeneration::accessVariable = (variable) ->
     if Array.isArray variable
@@ -167,26 +160,32 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
       @variables[variable] = registers[@registerCounter++]
     @variables[variable]
 
-  MAliceCodeGeneration::storeInData = (name, string) ->
-    @data.push ".LC#{@dataCount}:"
-    @data.push """\t.string "#{string}" """
-    @variables[name] = "OFFSET FLAT:.LC#{@dataCount}"
-    @dataCount++
+  MAliceCodeGeneration::accessData = (string) ->
+    pos = @data.indexOf string
+    if pos is -1
+      @data.push string
+      pos = @data.length - 1
+    "OFFSET FLAT:.LC#{pos}"
 
-  MAliceCodeGeneration::formatString = (into, type) ->
+  MAliceCodeGeneration::formatString = (type) ->
     if type.equals types.sentence
-      format = '_stringFormat'
+      @accessData '%s'
     else if type.equals types.letter
-      format = '_charFormat'
+      @accessData '%c'
     else if type.equals types.number
-      format = '_numberFormat'
-    ["\tmov #{into}, #{@accessVariable format}"]
+      @accessData '%d'
 
+  MAliceCodeGeneration::writeDataSection = ->
+    dataSection = []
+    for string, i in @data
+      dataSection.push ".LC#{i}:"
+      dataSection.push """\t.string "#{string}" """
+    dataSection.join '\n'
 
   MAliceCodeGeneration::finalOutput = (instructions) ->
     output = ['.intel_syntax noprefix']
     output.push '.section .rodata'
-    output = concat output, @data
+    output.push @writeDataSection()
     output.push '.text'
     output.push '\t.globl main'
     output = concat output, (concat instructions...)
