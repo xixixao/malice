@@ -19,13 +19,14 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
          | {log "There's nothing here"} empty
 
     Program :node :pos :scope enterScope(scope) trans:declarations trans:initializations
-      -> concat @functions..., [['Label', 'main'], ['Begin']], declarations, initializations, [['Call', 'hatta', 0], ['End', 'main']]
+      ->  hatta = scope.get 'hatta'
+          concat @functions..., [['Label', 'main'], ['Begin']], declarations, initializations, [['Call', 'hatta', 0], ['End', 'main']]
 
     Function :node :pos :type :name :returnType [trans*:args] :scope {
-      for freeName, freeNode of scope.frees
-        args.push ['Argument', [newFreeName = @declare(null, freeName)], freeNode.type()]
-        scope.freeNames[freeName] = newFreeName
-      return @declare(node, name)
+          for freeName, freeNode of scope.frees
+            args.push ['Argument', [newFreeName = @declare(null, freeName)], freeNode.type()]
+            scope.freeNames[freeName] = newFreeName
+          return @declare(node, name)
     }:mangledName trans:body
       ->  concat [['Label', mangledName], ['Begin']], args, body, [['End', mangledName]]
 
@@ -87,23 +88,12 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
           ]
 
     Call :node :pos :detail trans:fun trans*:args
-      ->  paramBodies = []
-          paramResults = []
-          paramPops = []
-          for arg in args
-            [body, result] = arg
-            paramBodies = concat paramBodies, body
-            paramResults.unshift ['Param', result]
-          scope = node[3].original.scope()
-          for freeName, freeNode of scope.frees
-            paramResults.unshift ['Param', @currentScope.getNameOf(freeNode.name())[0]]
-          [_, name] = fun
-          call = concat paramBodies, paramResults
-          for freeName, freeNode of scope.frees
-            paramPops.push ['ParamPop', @currentScope.getNameOf(freeNode.name())[0]]
+      ->  [paramResults, paramPops] = @passFreeVariables node[3].original.scope()
+          paramBodies = []
+          paramBodies.push body... for [body, result] in args
           [_, name] = fun
           if detail is false
-            concat call, [
+            concat paramBodies, paramResults, [
               ['Call', name, args.length]
             ], paramPops
           else
@@ -220,5 +210,14 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
     @names[name] = true
     node?.mangledName = name
     name
+
+  MAliceTranslator::passFreeVariables = (scope) ->
+    paramResults = []
+    paramPops = []
+    for freeName, freeNode of scope.frees
+      [mangledName, _] = @currentScope.getNameOf freeNode.name()
+      paramResults.unshift ['Param', mangledName]
+      paramPops.push ['ParamPop', mangledName]
+    [paramResults, paramPops]
 
   MAliceTranslator.match ast, "trans", undefined, (m, i) -> console.error "ERROR while traversing AST in translator"
