@@ -1,5 +1,6 @@
 # Module dependencies.
 fs         = require 'fs'
+{exec}     = require 'child_process'
 command    = require 'commander'
 clc        = require 'cli-color'
 {log}      = require './utils'
@@ -11,7 +12,7 @@ require './colorConsole'
 command
   .version('MAlice Compiler in CofeeScript and MetaCoffee, version 0.0.1')
   .usage('[options] <file ...>')
-  .option('-t, --tree', 'print out syntax tree')
+  .option('-t, --tree', 'print out the syntax tree')
   .option('-S, --assembly', 'print out the generated assembly code')
   .parse(process.argv)
 
@@ -24,7 +25,7 @@ metacoffee (parser, semantics, staticoptimization, translation, codeGeneration, 
     catch e
       console.error "File '#{file}' couldn't be loaded!"
     if sourceCode?
-      console.log "\nCompiling file '#{clc.greenBright file}'\n"
+      console.error "\nCompiling file '#{clc.greenBright file}'\n"
       syntaxTree = parser.parse sourceCode
       if typeof syntaxTree isnt "string"
         syntaxTree = semantics.analyze sourceCode, syntaxTree
@@ -37,9 +38,23 @@ metacoffee (parser, semantics, staticoptimization, translation, codeGeneration, 
         if command.tree
           log syntaxTree
           console.log "\n"
+          return
         code = codeGeneration.generateCode syntaxTree
         if command.assembly
           console.log code
           console.log "\n"
+          return
+        fs.writeFileSync 'out.s', code
+        exec 'as out.s -o out.o', (error, stdout, stderr) ->
+          console.log stdout
+          console.error stderr
+          if error
+            console.error "error: #{error}"
+          exec 'gcc lib/utils.c out.o -o out', (error, stdout, stderr) ->
+            console.log stdout
+            console.error stderr
+            if error
+              console.error "error: #{error}"
+
       else
         console.error syntaxTree
