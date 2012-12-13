@@ -135,7 +135,7 @@ module.exports = (OMeta, OMLib) -> optimize: (nodes) ->
     Return :node :result
       ->  #moves.push [returnRegister, result, node]
           addUsing node, result
-          addLiveOut node, returnRegister
+          addUsing node, returnRegister
 
     Output :node :value :type cCall(node)
       ->  addUsing node, value
@@ -144,8 +144,8 @@ module.exports = (OMeta, OMLib) -> optimize: (nodes) ->
       ->  addDefines node, into
 
     cCall :node
-      -> addLiveOut node, "$ax", "$dx", "$di", "$si"
-         addLiveOut node, "$cx", "$8", "$9", "$10", "$11"
+      -> addUsing node, "$ax", "$dx", "$di", "$si"
+         addUsing node, "$cx", "$8", "$9", "$10", "$11"
 
   fromPointer = (value) ->
     if Array.isArray value then value[0] else value
