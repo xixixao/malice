@@ -26,8 +26,8 @@ module.exports = (OMeta, OMLib) -> optimize: (nodes) ->
 
   # C calling convention
   cReturnRegister = "$ax"
-  cCallerSaveRegisters = ["$ax", "$dx", "$di", "$si"
-                         "$cx", "$8", "$9", "$10", "$11"]
+  cCallerSaveRegisters = ["$ax", "$cx", "$dx", "$di", "$si",
+                          "$8", "$9", "$10", "$11"]
 
   # Building Control Flow Graph
   # ---------------------------
@@ -102,6 +102,7 @@ module.exports = (OMeta, OMLib) -> optimize: (nodes) ->
 
     ArrayAccess :node :into :array :index :type assignment(node, into, array)
       ->  addUsing node, index, "$ax"
+          addDefines cCallerSaveRegisters
 
     Decrement :node :variable assignment(node, variable, variable)
     Increment :node :variable assignment(node, variable, variable)
@@ -138,6 +139,7 @@ module.exports = (OMeta, OMLib) -> optimize: (nodes) ->
 
     ArrayAssignment :node :array :index :value :type
       ->  addUsing node, array, index, value, "$ax"
+          addDefines cCallerSaveRegisters
 
     Return :node :result
       ->  #moves.push [returnRegister, result, node]
@@ -258,7 +260,7 @@ module.exports = (OMeta, OMLib) -> optimize: (nodes) ->
 
   coalesce = (stack, graph, limit, canSimplify = yes) ->
     for [a, b, node], i in moves when graph[a]? and graph[b]?
-      log "trying coalesce", [a, b]
+      #log "trying coalesce", [a, b]
       coalescable = not (a in graph[b])
       coalescable and= graph[a].every (t) ->
         t in registers or graph[t].length < limit or b in graph[t]
@@ -266,7 +268,7 @@ module.exports = (OMeta, OMLib) -> optimize: (nodes) ->
         # Create new coalesced temporary
         newTemp = a + "," + b
         oldNames = [a, b]
-        log "coalescing into ", newTemp
+        #log "coalescing into ", newTemp
         # Replace old temporaries with the new joined one
         for temp, interferes of graph
           graph[temp] = graph[temp].map (old) ->
@@ -381,7 +383,7 @@ module.exports = (OMeta, OMLib) -> optimize: (nodes) ->
             for set in ['livein', 'liveout']
               x[set] = x[set].filter (xUse) -> xUse isnt use
         removeNode node
-        log "Dead ", node
+        #log "Dead ", node
         return node.removed = true
     false
 
