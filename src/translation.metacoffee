@@ -20,7 +20,6 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
 
     Program :node :pos :scope enterScope(scope) trans:declarations
       ->  hatta = scope.get 'hatta'
-          log "programs", declarations
           [freePushes, freePops] = @passFreeVariables hatta.scope()
           concat @functions..., [
             ['Label', 'main']
@@ -63,7 +62,6 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
     Array :node :pos :type :name trans:size
       ->  [body, result] = size
           decl = concat body, [['Array', @declare(node, name), type, result]]
-          log "Log array", decl
           decl.simple = yes
           decl
 
