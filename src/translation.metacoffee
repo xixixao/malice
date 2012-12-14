@@ -12,6 +12,8 @@ errorHandler = require './errorprinter'
 
 module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
 
+  calleeRegs = ["$bx", "$12", "$13", "$14", "$15"]
+
   ometa MAliceTranslator
     trans     :node = transNode(node, node)
     transNode :node = [:t (!{@[t]?} anything* {node} | prepend([node]) apply(t)):ans] -> ans
@@ -21,14 +23,14 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
     Program :node :pos :scope enterScope(scope) trans:declarations
       ->  hatta = scope.get 'hatta'
           [freePushes, freePops] = @passFreeVariables hatta.scope()
-          concat @functions..., [
+          concat @functions, [concat [
             ['Label', 'main']
             ['Begin']
           ], declarations, freePushes, [
             ['Call', 'hatta', 0]
           ], freePops, [
             ['End', 'main']
-          ]
+          ]]
 
     Function :node :pos :type :name :returnType [trans*:args] :scope {
           for freeName, freeNode of scope.frees
@@ -36,7 +38,13 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
             scope.freeNames[freeName] = newFreeName
           return @declare(node, name)
     }:mangledName trans:body
-      ->  decl = concat [['Label', mangledName], ['Begin']], args, body, [['End', mangledName]]
+      ->  callees = @callees()
+          decl = concat [
+            ['Label', mangledName]
+            ['Begin']
+          ], @pushCallees(callees), args, body, @popCallees(callees), [
+            ['End', mangledName]
+          ]
           decl.function = true
           decl
 
@@ -194,6 +202,10 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
     exitScope
       ->  @currentScope = @currentScope.outer
 
+    callees
+      ->  for reg in calleeRegs
+            [@newTemp(), reg]
+
     initialize
       ->  @labelCounter = 0
           @tempCounter = 0
@@ -229,6 +241,14 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
     @names[name] = true
     node?.mangledName = name
     name
+
+  MAliceTranslator::pushCallees = (callees) ->
+    for [temp, reg] in callees
+      ['Assignment', temp, reg]
+
+  MAliceTranslator::popCallees = (callees) ->
+    (for [temp, reg] in callees
+      ['Assignment', reg, temp]).reverse()
 
   MAliceTranslator::passFreeVariables = (scope) ->
     freePushes = []

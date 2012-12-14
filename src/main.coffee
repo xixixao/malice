@@ -22,6 +22,7 @@ command
 
 # Compile files
 metacoffee = require './loadMetaCoffee'
+optimization = require './optimization'
 metacoffee (parser, semantics, staticoptimization, translation, codeGeneration, addressCodeOptimization) ->
   allCompiled = true
   for file in command.args
@@ -58,7 +59,7 @@ metacoffee (parser, semantics, staticoptimization, translation, codeGeneration, 
             continue
 
           # Optimization and register allocation
-          addressCode = addressCodeOptimization.optimize addressCode
+          addressCode = optimization addressCode, [addressCodeOptimization]
           if command.allocation
             log addressCode
             continue
@@ -69,6 +70,7 @@ metacoffee (parser, semantics, staticoptimization, translation, codeGeneration, 
             console.log assemblyCode
             continue
           fileName = file.replace new RegExp("#{path.extname file}$"), ''
+          fileName = "out"
           do (fileName) ->
             fs.writeFileSync "#{fileName}.s", assemblyCode
             exec "as #{fileName}.s -o #{fileName}.o", (error, stdout, stderr) ->
