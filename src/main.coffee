@@ -67,7 +67,7 @@ metacoffee (parser, semantics, staticoptimization, translation, codeGeneration, 
           if command.assembly
             console.log assemblyCode
             continue
-          fileName = file.replace /([^.])\.[^\.]+$/, '$1'
+          fileName = file.replace /([^.])\.\w+$/, '$1'
           do (fileName) ->
             fs.writeFileSync "#{fileName}.s", assemblyCode
             exec "as #{fileName}.s -o #{fileName}.o", (error, stdout, stderr) ->
