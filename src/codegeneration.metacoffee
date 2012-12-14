@@ -122,7 +122,7 @@ module.exports = (OMeta, OMLib) -> generateCode: (threeCode) ->
          if op in ['/', '%']
            resultReg = if op == '/' then 'rax' else 'rdx'
            ["\tmov rax, #{@accessVariable into}",
-            "\txor rdx, rdx",
+            "\tcqo",
             "\tidiv #{@accessVariable e1}",
             "\tmov #{@accessVariable into}, #{resultReg}"]
          else if op in ['==', '!=', '<=', '>=', '<', '>']
