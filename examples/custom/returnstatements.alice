@@ -1,13 +1,9 @@
-The room bla () contained a number
+The room bla (number y) contained a number
 opened
-  x was a number of 6.
-  opened
-    y was a number of 3.
-    Alice found y.
-  closed
+  x was a number of y.
   Alice found x.
 closed
 
 The room hatta () contained a number opened
-  bla () said Alice.
+  bla (6) said Alice.
 closed

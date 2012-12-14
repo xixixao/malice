@@ -1,5 +1,7 @@
 # Module dependencies.
 fs         = require 'fs'
+path       = require 'path'
+{exec}     = require 'child_process'
 command    = require 'commander'
 clc        = require 'cli-color'
 {log}      = require './utils'
@@ -11,35 +13,78 @@ require './colorConsole'
 command
   .version('MAlice Compiler in CofeeScript and MetaCoffee, version 0.0.1')
   .usage('[options] <file ...>')
-  .option('-t, --tree', 'print out syntax tree')
+  .option('-t, --tree', 'print out the syntax tree')
+  .option('-A, --threecode', 'print out the three address code')
+  .option('-B, --allocation', 'print out the three address code with allocated registers')
   .option('-S, --assembly', 'print out the generated assembly code')
+  .option('-r, --run', 'print out a bash exec list for all files')
   .parse(process.argv)
 
 # Compile files
 metacoffee = require './loadMetaCoffee'
-metacoffee (parser, semantics, staticoptimization, translation, codeGeneration, code3) ->
+metacoffee (parser, semantics, staticoptimization, translation, codeGeneration, addressCodeOptimization) ->
+  allCompiled = true
   for file in command.args
+
+    # Load file
     try
       sourceCode = fs.readFileSync file, 'utf8'
     catch e
       console.error "File '#{file}' couldn't be loaded!"
+      allCompiled = false
+
+    # Parse file
     if sourceCode?
-      console.log "\nCompiling file '#{clc.greenBright file}'\n"
+      console.error "\nCompiling file '#{clc.greenBright file}'\n"
       syntaxTree = parser.parse sourceCode
-      if typeof syntaxTree isnt "string"
-        syntaxTree = semantics.analyze sourceCode, syntaxTree
-        #syntaxTree = staticoptimization.optimize sourceCode, syntaxTree
-        syntaxTree = translation.translate sourceCode, syntaxTree
-        if command.tree
-          log syntaxTree
-          console.log "\n"
-        syntaxTree = code3.optimize syntaxTree
-        if command.tree
-          log syntaxTree
-          console.log "\n"
-        code = codeGeneration.generateCode syntaxTree
-        if command.assembly
-          console.log code
-          console.log "\n"
-      else
+      if typeof syntaxTree is "string"
         console.error syntaxTree
+        allCompiled = false
+      else
+
+        # Semantic analysis
+        syntaxTree = semantics.analyze sourceCode, syntaxTree
+        if not syntaxTree?
+          allCompiled = false
+        else
+          if command.tree
+            log syntaxTree
+          #syntaxTree = staticoptimization.optimize sourceCode, syntaxTree
+
+          # Translation to three-address code
+          addressCode = translation.translate sourceCode, syntaxTree
+          if command.threecode
+            log addressCode
+            continue
+
+          # Optimization and register allocation
+          addressCode = addressCodeOptimization.optimize addressCode
+          if command.allocation
+            log addressCode
+            continue
+
+          # Assembly generation
+          assemblyCode = codeGeneration.generateCode addressCode
+          if command.assembly
+            console.log assemblyCode
+            continue
+          fileName = file.replace new RegExp("#{path.extname file}$"), ''
+          do (fileName) ->
+            fs.writeFileSync "#{fileName}.s", assemblyCode
+            exec "as #{fileName}.s -o #{fileName}.o", (error, stdout, stderr) ->
+              console.log stdout
+              console.error stderr
+              if error
+                console.error "as error: #{error}"
+                return
+              exec "gcc lib/utils.c #{fileName}.o -o #{fileName}", (error, stdout, stderr) ->
+                console.log stdout
+                console.error stderr
+                if error
+                  console.error "gcc error: #{error}"
+                  return
+
+          # Exec list generation
+          if command.run
+            exec "echo 'exec #{fileName}' >> exec-list"
+

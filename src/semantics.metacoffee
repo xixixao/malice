@@ -12,6 +12,9 @@ errorHandler = require './errorprinter'
 
 module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
 
+  # Holds the number of errors found during semantic analysis
+  errorCount = 0
+
   #
   # Used for highlighting the location of an error, returns a position or undefined
   #
@@ -37,6 +40,7 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
 
   error = (message, where, detail) ->
     printError "Semantic error", message, where, detail
+    errorCount++
 
   warning = (message, where, detail) ->
     printError "Semantic warning", message, where, detail
@@ -118,7 +122,7 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
   ometa MAliceSemantics
     trans = [:t apply(t):ans] -> ans
 
-    Program :pos createScope:scope trans:declarations trans:initializations
+    Program :pos createScope:scope trans:declarations
       ->  hatta = scope.get 'hatta'
           if not hatta?
             error "The main function named 'hatta' was not declared."
@@ -127,7 +131,7 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
           else if not hatta.returnType().equals types.void
             error "The main function named 'hatta' cannot return a value. " +
                   "Instead, 'hatta' was declared to return '#{hatta.returnType()}'", hatta.returnType()
-          new Node 'Program', pos, scope, declarations, initializations
+          new Node 'Program', pos, scope, declarations
 
     Function :pos :name trans:returnType trans:args  {
         functionNode = @declare new FunctionNode 'Function', pos, types.function, name, returnType, args
@@ -322,8 +326,11 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
       @frees[node.name()] = node
 
     expandFree: (frees) ->
-      for name, free of frees when @declarations[name] isnt free
-        @addFree free
+      if @frees?
+        for name, free of frees when @declarations[name] isnt free
+          @addFree free
+      else
+        @outer.expandFree frees
 
     returns: (type) ->
       if type?
@@ -374,4 +381,9 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
   # Runs the semantic analyser by traversing the given AST.
   # At this point, returns the augmented AST.
   #
-  MAliceSemantics.match ast, "trans", undefined, (m, i) -> console.error "ERROR while traversing AST in semantic analyzer"
+  enhancedAST = MAliceSemantics.match ast, "trans", undefined, (m, i) -> console.error "ERROR while traversing AST in semantic analyzer"
+
+  if errorCount is 0
+    enhancedAST
+  else
+    undefined

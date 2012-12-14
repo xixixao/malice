@@ -18,33 +18,46 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
     head = empty {log @input.head()} empty
          | {log "There's nothing here"} empty
 
-    Program :node :pos :scope enterScope(scope) trans:declarations trans:initializations
-      ->  global: concat declarations, initializations
-          stack: concat @functions...
+    Program :node :pos :scope enterScope(scope) trans:declarations
+      ->  hatta = scope.get 'hatta'
+          [freePushes, freePops] = @passFreeVariables hatta.scope()
+          concat @functions..., [
+            ['Label', 'main']
+            ['Begin']
+          ], declarations, freePushes, [
+            ['Call', 'hatta', 0]
+          ], freePops, [
+            ['End', 'main']
+          ]
 
     Function :node :pos :type :name :returnType [trans*:args] :scope {
-      for freeName, freeNode of scope.frees
-        args.push ['Argument', [newFreeName = @declare(null, freeName)], freeNode.type()]
-        scope.freeNames[freeName] = newFreeName
-    } trans:body
-      ->  name = @declare(node, name)
-          concat [['Label', name], ['Begin']], args, body, [['End', name]]
+          for freeName, freeNode of scope.frees
+            args.push ['Argument', [newFreeName = @declare(null, freeName)], freeNode.type()]
+            scope.freeNames[freeName] = newFreeName
+          return @declare(node, name)
+    }:mangledName trans:body
+      ->  decl = concat [['Label', mangledName], ['Begin']], args, body, [['End', mangledName]]
+          decl.function = true
+          decl
 
     Argument :node :pos :type :name
-      ->  ['Argument', name, type]
+      ->  ['Argument', @declare(node, name), type]
 
     Block :node :pos :returns :scope enterScope(scope) trans:declarations trans:statements exitScope
       ->  concat declarations, statements
 
     Declarations :node :pos trans*:ds
-      ->  for d in ds when !d.simple?
-            @functions.push d
-          d[0] for d in ds when d.simple?
+      ->  simples = []
+          for d in ds when d?
+            if d.function?
+              @functions.push d
+            else
+              simples = concat simples, d
+          simples
 
     Variable :node :pos :type :name
-      ->  decl = [['Variable', name = @declare(node, name), type]]
-          decl.simple = yes
-          decl
+      ->  @declare(node, name)
+          undefined
 
     Array :node :pos :type :name trans:size
       ->  [body, result] = size
@@ -64,7 +77,7 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
           [arraybody, arrayresult] = array
           [body, result] = value
           concat body, arraybody, indexbody, [
-            ['ArrayAssignment', arrayresult, indexresult, result]
+            ['ArrayAssignment', arrayresult, indexresult, result, type]
           ]
 
     Assignment :node :pos :returns trans:assignable trans:value
@@ -89,29 +102,22 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
           ]
 
     Call :node :pos :detail trans:fun trans*:args
-      ->  paramBodies = []
-          paramResults = []
-          paramPops = []
-          for arg in args
-            [body, result] = arg
-            paramBodies = concat paramBodies, body
-            paramResults.unshift ['Param', result]
-          scope = node[3].original.scope()
-          for freeName, freeNode of scope.frees
-            paramResults.unshift ['Param', @currentScope.getNameOf(freeNode.name())[0]]
-          [_, name] = fun
-          call = concat paramBodies, paramResults
-          for freeName, freeNode of scope.frees
-            paramPops.push ['ParamPop', @currentScope.getNameOf(freeNode.name())[0]]
+      ->  [freePushes, freePops] = @passFreeVariables node[3].original.scope()
+          paramPushes = []
+          paramBodies = []
+          for [body, result] in args
+            paramPushes.unshift ['Param', result]
+            paramBodies.push body...
+          beforeCall = concat paramBodies, freePushes, paramPushes
           [_, name] = fun
           if detail is false
-            concat call, [
+            concat beforeCall, [
               ['Call', name, args.length]
-            ], paramPops
+            ], freePops
           else
-            [concat(call, [
+            [concat(beforeCall, [
               ['CallAssignment', callResult = @newTemp(), name, args.length]
-            ], paramPops), callResult]
+            ], freePops), callResult]
 
 
     Return :node :pos :returns trans:value
@@ -122,7 +128,7 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
 
     Input :node :pos :returns trans:variable
       ->  [_, into] = variable
-          [['Read', variable, node[3].type()]]
+          [['Read', into, node[3].type()]]
 
     If :node :pos :returns trans:cond trans:ifBody trans:elseBody
       ->  [condbody, condresult] = cond
@@ -137,8 +143,9 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
 
     Until :node :pos :returns trans:cond trans:body
       ->  [condbody, condresult] = cond
-          concat condbody, [
+          concat [
             ['Label', whileLabel = @newLabel()]
+          ], condbody, [
             ['IfTrue', condresult, endLabel = @newLabel()]
           ], body, [
             ['Jump', whileLabel]
@@ -166,7 +173,7 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
       ->  [indexbody, indexresult] = index
           [arraybody, arrayresult] = array
           [concat(indexbody, arraybody,
-            [['ArrayAccess', temp = @newTemp(), arrayresult, indexresult]]
+            [['ArrayAccess', temp = @newTemp(), arrayresult, indexresult, type]]
           ), temp]
 
     Value :node :pos :type :v
@@ -214,13 +221,22 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
     "t" + @tempCounter++
 
   MAliceTranslator::declare = (node, name) ->
-    if name is "hatta" and node?.scope?().outer and not node?.scope?().outer.outer?
-      return "main"
+    #if name is "hatta" and node?.scope?().outer and not node?.scope?().outer.outer?
+    #  return "main"
     origName = name
     if @names[name]
       name = origName + Math.floor(Math.random() * 999) while @names[name]
     @names[name] = true
     node?.mangledName = name
     name
+
+  MAliceTranslator::passFreeVariables = (scope) ->
+    freePushes = []
+    freePops = []
+    for freeName, freeNode of scope.frees
+      [mangledName, _] = @currentScope.getNameOf freeNode.name()
+      freePushes.unshift ['Param', mangledName]
+      freePops.push ['ParamPop', mangledName]
+    [freePushes, freePops]
 
   MAliceTranslator.match ast, "trans", undefined, (m, i) -> console.error "ERROR while traversing AST in translator"

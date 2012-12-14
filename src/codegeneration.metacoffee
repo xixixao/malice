@@ -1,31 +1,51 @@
 errorHandler = require './errorprinter'
 {concat} = require './metaCoffeeUtils'
+{log} = require './utils'
 {types} = require './nodes'
 
-module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
+module.exports = (OMeta, OMLib) -> generateCode: (threeCode) ->
 
-  registers = [
-    "rax"
-    "rbx"
-    "rcx"
-    "rdx"
-    "r8"
-    "r9"
-    "r10"
-    "r11"
-    "r12"
-    "r13"
-    "r14"
-    "r15"
-    "rdi"
-    "rsi"
+  argumentRegisters = [
+    'rdi'
+    'rsi'
+    'rdx'
+    'rcx'
+    'r8'
+    'r9'
   ]
 
-  pushAll = ->
-    registers.map (register) -> "\tpush #{register}"
+  opInstructions =
+    '+': 'add'
+    '-': 'sub'
+    '*': 'imul'
+    '|': 'or'
+    '^': 'xor'
+    '&': 'and'
 
-  popAll = ->
-    (registers.map (register) -> "\tpop #{register}").reverse()
+  unaryOpInstructions =
+    '-': 'neg'
+    '~': 'not'
+
+  cmpOpInstructions =
+    '==': 'sete'
+    '!=': 'setne'
+    '<=': 'setle'
+    '>=': 'setge'
+    '<' : 'setl'
+    '>' : 'setg'
+
+  callCFunction = (name, args...) ->
+    instructions = []
+    for arg, i in args
+      instructions.push "\tmov #{argumentRegisters[i]}, #{arg}"
+    concat instructions, ["\tmov eax, 0",
+                          "\tcall #{name}"],
+
+  sizeof = (type) ->
+    if type.equals types.number
+      4
+    else if type.equals types.letter
+      1
 
   ometa MAliceCodeGeneration
 
@@ -44,15 +64,18 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
          @liftedArguments = []
          concat args, ['\tleave',
                        '\tret']
-    Variable :name :type
-      -> [""]
     Array :name :type :size
-      -> [""]
+      -> if type.itemType().equals types.letter
+           alloc = 'alloc_c'
+         else if type.itemType().equals types.number
+           alloc = 'alloc_i'
+         concat callCFunction(alloc, @accessVariable size),
+                ["\tmov #{@accessVariable name}, rax"]
     IfFalse :condition :jumpto
-      -> ["\tcmp #{condition}, 0",
-          "je #{jumpto}"]
+      -> ["\tcmp #{@accessVariable condition}, 0",
+          "\tje #{jumpto}"]
     IfTrue :condition :jumpto
-      -> ["\tcmp #{condition}, 0",
+      -> ["\tcmp #{@accessVariable condition}, 0",
           "\tjne #{jumpto}"]
     Jump :to
       -> ["\tjmp #{to}"]
@@ -65,10 +88,12 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
            [name] = name
            @liftedArguments.push name
          ["\tmov #{@accessVariable name}, [rbp+#{16+8*@argumentCount++}]"]
-    ArrayAccess :into :array :i
-      -> ["\tmov #{@accessVariable into}, [#{@accessVariable array} + #{i}]"]
-    ArrayAssignment :array :i :value
-      -> ["\tmov [#{@accessVariable array}+#{i}], #{@accessVariable value}"]
+    ArrayAccess :into :array :i :type
+      -> ["\tmov rax, #{@accessVariable i}",
+          "\tmov #{@accessVariable into}, [#{@accessVariable array}+#{sizeof type}*rax]"]
+    ArrayAssignment :array :i :value :type
+      -> ["\tmov rax, #{@accessVariable i}",
+          "\tmov [#{@accessVariable array}+#{sizeof type}*rax], #{@accessVariable value}"]
     Decrement :variable
       -> ["\tdec #{@accessVariable variable}"]
     Increment :variable
@@ -84,77 +109,85 @@ module.exports = (OMeta, OMLib) -> generateCode: (ast) ->
       -> ["\tmov [#{@accessVariable into}], #{@accessVariable from}"]
     ValAssignment :into :value :type
       -> if type.equals types.sentence
-           @storeInData into, value
-           return []
+           return ["\tmov #{@accessVariable into}, #{@accessData value}"]
          if type.equals types.letter
            value = value.charCodeAt 0
          ["\tmov #{@accessVariable into}, #{value}"]
     CallAssignment :into :name :argumentCount
       -> ["\tcall #{name}",
           "\tadd rsp, #{8 * argumentCount}",
-          "\tmov #{@accessVariable into}, eax"]
-    ImmAssignment :into :operator :e1 anything?:e2
-      -> [""]
+          "\tmov #{@accessVariable into}, rax"]
+    ImmAssignment :into :op :e1 anything?:e2
+      -> e1 = e2 if e2?
+         if op in ['/', '%']
+           resultReg = if op == '/' then 'rax' else 'rdx'
+           ["\tmov rax, #{@accessVariable into}",
+            "\txor rdx, rdx",
+            "\tidiv #{@accessVariable e1}",
+            "\tmov #{@accessVariable into}, #{resultReg}"]
+         else if op in ['==', '!=', '<=', '>=', '<', '>']
+           ["\tcmp #{@accessVariable into}, #{@accessVariable e1}",
+            "\t#{cmpOpInstructions[op]} al",
+            "\tmovzx #{@accessVariable into}, al"]
+         else
+           if e2?
+             ["\t#{opInstructions[op]} #{@accessVariable into}, #{@accessVariable e1}"]
+           else
+             ["\tmov #{@accessVariable into}, #{@accessVariable e1}",
+              "\t#{unaryOpInstructions[op]} #{@accessVariable into}"]
     Return :result
-      -> ["\tmov eax, #{@accessVariable result}",
-          "\tret"]
+      -> ["\tmov rax, #{@accessVariable result}"]
     Output :value :type
-      -> concat @formatString('rdi', type),
-                pushAll(),
-                ["\tmov rsi, #{@accessVariable value}",
-                 "\tmov eax, 0",
-                 "\tcall printf"],
-                popAll()
+      -> callCFunction 'printf', @formatString(type), @accessVariable(value)
     Read :into :type
-      -> concat @formatString('rdi', type),
-                pushAll(),
-                ["\tsub rsp, 8",
-                 "\tmov rsi, rsp",
-                 "\tmov eax, 0",
-                 "\tcall scanf",
-                 "\tmov #{@accessVariable into}, rsp"]
+      -> if type.equals types.sentence
+           readInstructions = ["\tcall read"]
+         else
+           readInstructions = concat ["\tsub rsp, 8"],
+                                     callCFunction('scanf', @formatString(type), 'rsp'),
+                                     ["\tmov rax, [rsp]"]
+         concat readInstructions,
+                ["\tmov #{@accessVariable into}, rax"]
     initialize
       -> @registerCounter = 0
          @variables = {}
          @data = []
-         @dataCount = 0
          @liftedArguments = []
          @argumentCount = 0
-         @storeInData '_charFormat', '%c'
-         @storeInData '_stringFormat', '%s'
-         @storeInData '_numberFormat', '%d'
 
   MAliceCodeGeneration::accessVariable = (variable) ->
-    if Array.isArray variable
-      [variable] = variable
-    unless @variables[variable]?
-      @variables[variable] = registers[@registerCounter++]
-    @variables[variable]
+    'r' + variable[1..]
 
-  MAliceCodeGeneration::storeInData = (name, string) ->
-    @data.push ".LC#{@dataCount}:"
-    @data.push """\t.string "#{string}" """
-    @variables[name] = "OFFSET FLAT:.LC#{@dataCount}"
-    @dataCount++
+  MAliceCodeGeneration::accessData = (string) ->
+    pos = @data.indexOf string
+    if pos is -1
+      @data.push string
+      pos = @data.length - 1
+    "OFFSET FLAT:.LC#{pos}"
 
-  MAliceCodeGeneration::formatString = (into, type) ->
+  MAliceCodeGeneration::formatString = (type) ->
     if type.equals types.sentence
-      format = '_stringFormat'
+      @accessData '%s'
     else if type.equals types.letter
-      format = '_charFormat'
+      @accessData '%c'
     else if type.equals types.number
-      format = '_numberFormat'
-    ["\tmov #{into}, #{@accessVariable format}"]
+      @accessData '%d'
 
+  MAliceCodeGeneration::writeDataSection = ->
+    return '' if @data.length is 0
+    dataSection = ['.section .rodata']
+    for string, i in @data
+      dataSection.push ".LC#{i}:"
+      dataSection.push """\t.string "#{string}" """
+    dataSection.join '\n'
 
   MAliceCodeGeneration::finalOutput = (instructions) ->
     output = ['.intel_syntax noprefix']
-    output.push '.section .rodata'
-    output = concat output, @data
+    output.push @writeDataSection()
     output.push '.text'
     output.push '\t.globl main'
     output = concat output, (concat instructions...)
-    output.join '\n'
+    output = output.join '\n'
+    output + '\n'
 
-    #global = MAliceCodeGeneration.matchAll ast.global, "list", undefined, (m, i) -> console.error "ERROR while traversing AST in code generation"
-  MAliceCodeGeneration.matchAll ast.stack, "list", undefined, (m, i) -> console.error "ERROR while traversing AST in code generation"
+  MAliceCodeGeneration.matchAll threeCode, "list", undefined, (m, i) -> console.error "ERROR while traversing AST in code generation"
