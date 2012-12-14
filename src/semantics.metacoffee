@@ -12,6 +12,9 @@ errorHandler = require './errorprinter'
 
 module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
 
+  # Holds the number of errors found during semantic analysis
+  errorCount = 0
+
   #
   # Used for highlighting the location of an error, returns a position or undefined
   #
@@ -37,6 +40,7 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
 
   error = (message, where, detail) ->
     printError "Semantic error", message, where, detail
+    errorCount++
 
   warning = (message, where, detail) ->
     printError "Semantic warning", message, where, detail
@@ -377,4 +381,9 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
   # Runs the semantic analyser by traversing the given AST.
   # At this point, returns the augmented AST.
   #
-  MAliceSemantics.match ast, "trans", undefined, (m, i) -> console.error "ERROR while traversing AST in semantic analyzer"
+  enhancedAST = MAliceSemantics.match ast, "trans", undefined, (m, i) -> console.error "ERROR while traversing AST in semantic analyzer"
+
+  if errorCount is 0
+    enhancedAST
+  else
+    undefined
