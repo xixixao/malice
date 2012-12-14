@@ -1,5 +1,6 @@
 # Module dependencies.
 fs         = require 'fs'
+path       = require 'path'
 {exec}     = require 'child_process'
 command    = require 'commander'
 clc        = require 'cli-color'
@@ -14,7 +15,7 @@ command
   .usage('[options] <file ...>')
   .option('-t, --tree', 'print out the syntax tree')
   .option('-A, --threecode', 'print out the three address code')
-  .option('-A2, --allocation', 'print out the three address code with allocated registers')
+  .option('-B, --allocation', 'print out the three address code with allocated registers')
   .option('-S, --assembly', 'print out the generated assembly code')
   .option('-r, --run', 'print out a bash exec list for all files')
   .parse(process.argv)
@@ -58,7 +59,7 @@ metacoffee (parser, semantics, staticoptimization, translation, codeGeneration, 
 
           # Optimization and register allocation
           addressCode = addressCodeOptimization.optimize addressCode
-          if command.threecode
+          if command.allocation
             log addressCode
             continue
 
@@ -67,7 +68,7 @@ metacoffee (parser, semantics, staticoptimization, translation, codeGeneration, 
           if command.assembly
             console.log assemblyCode
             continue
-          fileName = file.replace /([^.])\.\w+$/, '$1'
+          fileName = file.replace new RegExp("#{path.extname file}$"), ''
           do (fileName) ->
             fs.writeFileSync "#{fileName}.s", assemblyCode
             exec "as #{fileName}.s -o #{fileName}.o", (error, stdout, stderr) ->
