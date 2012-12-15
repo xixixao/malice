@@ -2,7 +2,7 @@ errorHandler = require './errorprinter'
 {concat, join} = require './metaCoffeeUtils'
 {log} = require './utils'
 
-module.exports = (OMeta, OMLib) -> optimize: (instructions) ->
+module.exports = (OMeta, OMLib) -> optimize: (instructions, namer) ->
 
   # Machine given registers
   registers = [
@@ -33,9 +33,16 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions) ->
                           "$8", "$9", "$10", "$11"]
 
 
-
   # Building Control Flow Graph
   # ---------------------------
+  fromPointer = (value) ->
+    if Array.isArray value then value[0] else value
+
+  fromToPointer = (value, func) ->
+    isPointer = Array.isArray value
+    newValue = func if isPointer then value[0] else value
+    if isPointer then [newValue] else newValue
+
   controlFlowAnalysis = (instructions) ->
     getNextInstruction = (instructions, at) ->
       loop
@@ -44,9 +51,9 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions) ->
         next.include = true
         return [next] if next[0] isnt "Label"
 
+    # Initialize (potentially wipe out) instruction properties. Instruction
+    # properties will maintain the doubly linked control-flow graph.
     # Generate firstAfter, the map from labels to first instructions following them
-    # and initialize instruction properties
-    # Instruction properties will maintain the doubly linked control-flow graph
     firstAfter = {}
     for instruction, i in instructions
       [type, label] = instruction
@@ -78,7 +85,6 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions) ->
       variable
 
     addDefines = (node, variables...) ->
-      log "defines", node, variables
       variables.map (v) -> node.defines.push [incrementDefine(fromPointer v)]
 
     addUsing = (node, variables...) ->
@@ -178,9 +184,6 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions) ->
       cCall :node
         ->  addLiveOut node, cCallerSaveRegisters...
 
-    fromPointer = (value) ->
-      if Array.isArray value then value[0] else value
-
     # Construct Control Flow Graph
     # ----------------------------
 
@@ -243,10 +246,11 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions) ->
   # Deriving Interference Graph
   # ---------------------------
 
-  precolored = for reg, i in registers
-    node = ["Register #{reg}"]
-    node.liveout = registers.map (r) -> [r]
-    node
+  precolorRegisterNodes = ->
+    for reg, i in registers
+      node = ["Register #{reg}"]
+      node.liveout = registers.map (r) -> [r]
+      node
 
   build = (nodes, precolored) ->
     graph = {}
@@ -260,8 +264,8 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions) ->
       delete interferes.move
     moves = moves.filter ([a, b]) ->
       if graph[a] and graph[b]
-        graph[a].moves = true
-        graph[b].moves = true
+        graph[a].move = true
+        graph[b].move = true
         true
       else
         false
@@ -270,43 +274,43 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions) ->
   # Register Allocation - Graph Coloring
   # ------------------------------------
 
-  registerColoring = (graph, moves, usedCount, defineCount) ->
-    stack = []
+  registerColoring = (nodes, locals, graph, moves, useCount, defineCount) ->
+    # a stack holding nodes for coloring
+    colorables = []
+
     limit = registers.length
 
+    # Removes all occurences of temp from the interference graph
     remove = (temp) ->
       interferes = graph[temp]
       for x in interferes
         graph[x] = graph[x]?.filter (t) -> t isnt temp
       delete graph[temp]
 
+    # Takes out a non-precolored, non-move-related node and pushes it onto colorables
     simplify = (canCoalesce = yes) ->
       for temp, interferes of graph when not (interferes.move? or temp in registers)
         if interferes.length < limit
-          stack.push [temp, interferes]
+          colorables.push [temp, interferes]
           #log "simplify-remove", temp
           remove temp, graph
-          return coalesce stack, graph, moves, limit
+          return coalesce()
       if canCoalesce
         # Cannot simplify, but maybe can coalesce
         return coalesce no
       else
         return freeze()
 
+    # Takes out some move which doesn't make the graph less colorable
     coalesce = (canSimplify = yes) ->
       for [a, b, node], i in moves when graph[a]? and graph[b]?
-        log "trying coalesce", [a, b]
         coalescable = not (a in graph[b])
         coalescable and= graph[a].every (t) ->
-          res = t is a or t in registers or graph[t].length < limit or b in graph[t]
-          if not res
-            log "fail", t
-          res
+          t is a or t in registers or graph[t].length < limit or b in graph[t]
         if coalescable
           # Create new coalesced temporary
           newTemp = a + "," + b
           oldNames = [a, b]
-          log "coalescing into ", newTemp
           # Replace old temporaries with the new joined one
           for temp, interferes of graph
             graph[temp] = graph[temp].map (old) ->
@@ -315,9 +319,9 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions) ->
           graph[newTemp] = union graph[a], graph[b]
           delete graph[a]
           delete graph[b]
-          # Replace old temporaries in interference lists on the stack
-          for [t, interference], si in stack
-            stack[si] = [t, interference.map (old) ->
+          # Replace old temporaries in interference lists on the colorables
+          for [t, interference], si in colorables
+            colorables[si] = [t, interference.map (old) ->
               if old in oldNames then newTemp else old
             ]
           # Replace old temporaries in moves
@@ -342,96 +346,123 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions) ->
       else
         return freeze()
 
+    # Both coalescing and simplifying failed, we won't be able to coalesce some move
     freeze = ->
       for temp, interferes of graph when interferes.move?
         if interferes.length < limit
-          delete interferes.moves
+          delete interferes.move
           moves = moves.filter (move) -> not (temp in move)
           return simplify()
       return spill()
 
+    # We ran out of possible colorable nodes, let's say some temporary will
+    # be pushed and popped instead and push it onto colorables
     spill = ->
       # Get nodes available for spilling and sort them according to a heuristic
       # We use "Uses + Definitions / Number of Interferences"
-      log "spilling", ([key, useCount[key] ,defineCount[key] ] for key, val of graph when not (temp in registers))
-
-      spills = ([temp, interferes] for temp, interferes of graph when not (temp in registers))
+      spills = for temp, interferes of graph when not (temp in registers)
+        [temp, interferes]
       spills.sort ([aName, aInters], [bName, bInters]) ->
         (useCount[aName] ? 0) + (defineCount[aName] ? 0) / aInters.length -
         (useCount[bName] ? 0) + (defineCount[bName] ? 0) / bInters.length
-      log spills
       for [temp, interferes] in spills
-        stack.push [temp, interferes]
+        colorables.push [temp, interferes]
         remove temp, graph
-        log "spilling  aaa", temp
         return simplify()
       return select()
 
-
+    # We emptied the graph, let's rebuild and hope for the best!
     select = ->
       colors = {}
+      actualSpills = []
       for reg in registers
         colors[reg] = reg
-      while stack.length > 0
-        [temp, interferes] = stack.pop()
-        log "selecting for ", temp
+      while colorables.length > 0
+        [temp, interferes] = colorables.pop()
         for color in registers
           if (interferes.every (x) -> colors[x] isnt color)
             colors[temp] = color
             break
+        # Our hopes vanished, there was no available color for this temporary
         if not colors[temp]?
-          actualSpill temp
-      return colors
+          actualSpills.push temp
+      if actualSpills.length is 0
+        return colors
+      else
+        actualSpill actualSpills
 
-    actualSpill = ->
-      log  "actual spill": temp
+    # Coloring with current instructions failed, we need to introduce pushes and pops
+    replaceOccurence = (locations, node, temp) ->
+      unless locations[temp]
+        locations[temp] = locals++
+      newTemp = namer.newTemporary temp
+      mapOverNode node, (t) -> if t is temp then newTemp else temp
+
+    actualSpill = (temps) ->
+      locations = {}
+      newInstructions = for node, i in nodes
+        newNodes = [node]
+        for fullTemp in temps
+          for temp in fullTemp.split ','
+            log temp, "wtf"
+            if node.defines?
+              for [d] in node.defines
+                if temp is d
+                  log "definecount", defineCount[temp], i
+                  newTemp = replaceOccurence locations, node, temp
+                  newNodes.push ['Push', newTemp]
+            if node.using?
+              for [d] in node.using
+                if temp is d
+                  log "usecount", useCount[temp], i, nodes.length
+                  newTemp =  replaceOccurence locations, node, temp
+                  newNodes.unshift ['Pop', newTemp]
+        newNodes
+      concat newInstructions...
+      log "spilling", temps
 
 
     # Execute register coloring algorithm
     return simplify()
+
+  mapOverNode = (node, func) ->
+    [code, _] = node
+    range = switch code
+      when 'Label', 'Begin', 'End', 'Jump', 'Call' then []
+      when 'Assignment' then [1..2]
+      when 'ArrayAccess', 'ArrayAssignment' then [1..3]
+      when 'Array' then [1, 3]
+      when 'ImmAssignment' then [1, 3, 4] #[..., into, op, e1, e2?]
+      else [1]
+    range.map (i) ->
+      node[i] = fromToPointer node[i], func if node[i]?
 
   # Register Allocation - Update Data-flow Graph
   # --------------------------------------------
 
   allocateRegisters = (nodes, coloring) ->
 
-    replaceName = (node, index) ->
-      temp = fromPointer node[index]
-      node[index] = coloring[temp] if temp?
-
-    replaceNames = (node, number) ->
-      replaceName node, index for index in [1..number] by 1
-
     # Split back coalesced temporaries
     for temp, register of coloring
       for t in temp.split ','
         coloring[t] = register
 
+    # Allocate registers
     for address in [nodes.length - 1..0]
       [code, operands...] = node = nodes[address]
-      # Allocate registers
-      switch code
-        when 'Label', 'Begin', 'End', 'Jump', 'Call' then null
-        when 'Assignment'
-          replaceNames node, 2
-          # Remove Assignment if useless
-          [_, to, from] = node
-          if to == from
-            nodes.splice address, 1
+      mapOverNode node, (temp) -> coloring[temp]
+      if code is 'Assignment'
+        # Remove Assignment if useless
+        [_, to, from] = node
+        if to == from
+          nodes.splice address, 1
+
         #when 'Return'
         #  replaceNames node, 1
         #  [_, from] = node
         #  if from == returnRegister
         #    nodes.splice address, 1
-        when 'ArrayAccess', 'ArrayAssignment'
-          replaceNames node, 3
-        when 'Array'
-          [1, 3].map (i) -> replaceName node, i
-        when 'ImmAssignment'
-          # ['ImmAssignment', into, op, e1, e2?]
-          [1, 3, 4].map (i) -> replaceName node, i
-        else
-           replaceNames node, 1
+    return nodes
 
   # Dead-code Elimination
   # ---------------------
@@ -467,7 +498,7 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions) ->
     removeDeadNodes = (nodes) ->
       nodes.filter (node) -> not node.removed? or node.useless?
 
-    while deadCodeElimination nodes
+    while analyzeDeadCode nodes
       liveness nodes
     removeDeadNodes nodes
 
@@ -476,20 +507,19 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions) ->
   # ---------------------------------------
 
 
-  dataFlowAnalysis = (nodes) ->
-
+  dataFlowAnalysis = (nodes, locals) ->
     [nodes, moves, useCount, defineCount] = controlFlowAnalysis nodes
+
     liveness nodes
+
     deadCodeElimination nodes
     #for x, i in nodes
     #  log i, x[0], x.liveout
-    interferenceGraph = categorize build(nodes, precolored), moves
+    interferenceGraph = categorize build(nodes, precolorRegisterNodes()), moves
     #log key, val for key, val of interferenceGraph when not (key in registers)
     #log "MOVES", moves
-    coloring = registerColoring nodes, moves, useCount, defineCount
+    coloring = registerColoring nodes, locals, interferenceGraph, moves, useCount, defineCount
     #log "coloring", coloring
     allocateRegisters nodes, coloring
 
-  # Make a copy of the original instructions
-  original = instructions[..]
-  dataFlowAnalysis instructions
+  dataFlowAnalysis instructions, 0
