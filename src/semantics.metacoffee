@@ -356,6 +356,9 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
       else
         [@get(name).mangledName, false]
 
+    toString: ->
+      "[Scope]": (key for key of @declarations)
+
   # Nodes
   # -----
 
