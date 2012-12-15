@@ -1,3 +1,4 @@
+
 # Module dependencies.
 fs         = require 'fs'
 path       = require 'path'
@@ -24,7 +25,10 @@ command
 metacoffee = require './loadMetaCoffee'
 optimization = require './optimization'
 metacoffee (parser, semantics, staticoptimization, translation, codeGeneration, addressCodeOptimization) ->
-  allCompiled = true
+
+  options = ['tree', 'threecode', 'allocation', 'assembly', 'run']
+  lastStage = option for option in options when command[option]
+
   for file in command.args
 
     # Load file
@@ -32,7 +36,6 @@ metacoffee (parser, semantics, staticoptimization, translation, codeGeneration, 
       sourceCode = fs.readFileSync file, 'utf8'
     catch e
       console.error "File '#{file}' couldn't be loaded!"
-      allCompiled = false
 
     # Parse file
     if sourceCode?
@@ -40,36 +43,36 @@ metacoffee (parser, semantics, staticoptimization, translation, codeGeneration, 
       syntaxTree = parser.parse sourceCode
       if typeof syntaxTree is "string"
         console.error syntaxTree
-        allCompiled = false
+        continue
       else
 
         # Semantic analysis
         syntaxTree = semantics.analyze sourceCode, syntaxTree
         if not syntaxTree?
-          allCompiled = false
+          continue
         else
           if command.tree
             log syntaxTree
-            continue
+            continue if lastStage is 'tree'
           #syntaxTree = staticoptimization.optimize sourceCode, syntaxTree
 
           # Translation to three-address code
           addressCode = translation.translate sourceCode, syntaxTree
           if command.threecode
             log addressCode
-            continue
+            continue if lastStage is 'threecode'
 
           # Optimization and register allocation
           addressCode = optimization addressCode, [addressCodeOptimization]
           if command.allocation
             log addressCode
-            continue
+            continue if lastStage is 'allocation'
 
           # Assembly generation
           assemblyCode = codeGeneration.generateCode addressCode
           if command.assembly
             console.log assemblyCode
-            continue
+            continue if lastStage is 'assembly'
           fileName = file.replace new RegExp("#{path.extname file}$"), ''
           fileName = "out"
           do (fileName) ->
