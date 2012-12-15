@@ -50,6 +50,7 @@ metacoffee (parser, semantics, staticoptimization, translation, codeGeneration, 
         else
           if command.tree
             log syntaxTree
+            continue
           #syntaxTree = staticoptimization.optimize sourceCode, syntaxTree
 
           # Translation to three-address code
