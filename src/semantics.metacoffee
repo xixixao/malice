@@ -5,7 +5,7 @@
 #
 
 errorHandler = require './errorprinter'
-{concat, join, ObjectifiedArray} = require './metaCoffeeUtils'
+{concat, join, append, ObjectifiedArray} = require './metaCoffeeUtils'
 {log} = require './utils'
 {Node, Executes, Block, Value, Reference, FunctionNode,
  SimpleType, FunctionType, ArrayType, ErrorType, types} = require './nodes'
@@ -139,7 +139,7 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
         return functionNode
       }:fun trans:body
       -> warning "There are paths in '#{name}' that don't return a value" unless body.doesReturn() or returnType.equals types.void
-         concat fun, [body]
+         append fun, [body]
 
     Arguments :pos trans*:args
 
@@ -150,7 +150,7 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
       ->  new Block 'Block', pos, (statements.doesReturn()), scope, declarations, statements
 
     Declarations :pos trans*:ds
-      ->  concat new Node('Declarations', pos), ds
+      ->  append new Node('Declarations', pos), ds
 
     Variable :pos :name trans:type
       ->  @declare new Reference 'Variable', pos, type, name
@@ -166,7 +166,7 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
       ->  new SimpleType pos, label
 
     Statements :pos trans*:ss
-      -> concat new Executes('Statements', pos, (ss.some (statement) -> statement.doesReturn())), ss
+      -> append new Executes('Statements', pos, (ss.some (statement) -> statement.doesReturn())), ss
 
     Skip
       -> new Executes 'Skip', undefined, false
@@ -204,10 +204,10 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
                 checkForTypeError "argument #{i+1}", fun.args()[i].type(), arg, fun.args()[i].type()
           @currentScope.expandFree fun.scope().frees
           if isStatement
-            concat new Executes('Call', pos, false, fun), args
+            append new Executes('Call', pos, false, fun), args
           else
             type = if validFunction then fun.returnType() else types.error
-            concat new Value('Call', pos, type, fun), args
+            append new Value('Call', pos, type, fun), args
 
     Return :pos trans:value
       ->  currentReturnType = @currentScope.returns()

@@ -236,7 +236,9 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
     "t" + @tempCounter++
 
   MAliceTranslator::declare = (node, name) ->
-    return node?.mangledName = namer.newTemporary name
+    newName = namer.newTemporary name
+    node?.mangledName = newName
+    newName
 
   MAliceTranslator::pushCallees = (callees) ->
     for [temp, reg] in callees
