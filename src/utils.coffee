@@ -7,6 +7,12 @@ colorize = (js) ->
   js = js.replace /"((\\"|.)*?)"/g, clc.green '$1' # <"some text">
   js = js.replace /(true|false|undefined|null)/g, clc.yellow '$1' # keywords
 
+stringify = (xs...) ->
+  (xs.map (x) -> colorize dumper.parse x).join ", "
+
 module.exports =
   log: (xs...) ->
-    console.error (xs.map (x) -> colorize dumper.parse x).join ","
+    console.error stringify xs...
+
+  stringify: stringify
+
