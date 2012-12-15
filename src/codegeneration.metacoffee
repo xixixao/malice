@@ -120,7 +120,7 @@ module.exports = (OMeta, OMLib) -> generateCode: (threeCode) ->
     ImmAssignment :into :op :e1 anything?:e2
       -> e1 = e2 if e2?
          if op in ['/', '%']
-           resultReg = if op == '/' then 'rax' else 'rdx'
+           resultReg = {'/': 'rax', '%': 'rdx'}[op]
            ["\tmov rax, #{@accessVariable into}",
             "\tcqo",
             "\tidiv #{@accessVariable e1}",
