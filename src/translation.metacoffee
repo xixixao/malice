@@ -9,10 +9,13 @@ errorHandler = require './errorprinter'
 {log} = require './utils'
 {Node, Executes, Value, Reference, FunctionNode,
  SimpleType, FunctionType, ArrayType, ErrorType, types} = require './nodes'
+Namer = require './namer'
 
 module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
 
   calleeRegs = ["$bx", "$12", "$13", "$14", "$15"]
+
+  namer = new Namer
 
   ometa MAliceTranslator
     trans     :node = transNode(node, node)
@@ -209,8 +212,8 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
     initialize
       ->  @labelCounter = 0
           @tempCounter = 0
+          @mangles = 0
           @functions = []
-          @names = {}
 
   MAliceTranslator::translateExpression = (op, e1, e2) ->
     [e1body, e1result] = e1
@@ -233,14 +236,7 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
     "t" + @tempCounter++
 
   MAliceTranslator::declare = (node, name) ->
-    #if name is "hatta" and node?.scope?().outer and not node?.scope?().outer.outer?
-    #  return "main"
-    origName = name
-    if @names[name]
-      name = origName + Math.floor(Math.random() * 999) while @names[name]
-    @names[name] = true
-    node?.mangledName = name
-    name
+    return node?.mangledName = namer.newTemporary name
 
   MAliceTranslator::pushCallees = (callees) ->
     for [temp, reg] in callees
@@ -259,4 +255,7 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
       freePops.push ['ParamPop', mangledName]
     [freePushes, freePops]
 
-  MAliceTranslator.match ast, "trans", undefined, (m, i) -> console.error "ERROR while traversing AST in translator"
+  addressCode = MAliceTranslator.match ast, "trans", undefined, (m, i) -> console.error "ERROR while traversing AST in translator"
+  addressCode.namer = namer
+
+  return addressCode
