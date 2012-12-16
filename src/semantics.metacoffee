@@ -4,46 +4,13 @@
 #   Semantic analysis, type and error checking
 #
 
-errorHandler = require './errorprinter'
+ErrorPrinter = require './semantics/ErrorPrinter'
 {concat, join, append, ObjectifiedArray} = require './metaCoffeeUtils'
 {log} = require './utils'
 {Node, Executes, Block, Value, Reference, FunctionNode,
  SimpleType, FunctionType, ArrayType, ErrorType, types} = require './nodes'
 
 module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
-
-  # Holds the number of errors found during semantic analysis
-  errorCount = 0
-
-  #
-  # Used for highlighting the location of an error, returns a position or undefined
-  #
-  #   where: Identifier with a position or position in the form [begin, end] or undefined
-  #
-  locate = (where) ->
-    where?.position?() ? where
-
-  #
-  # Print a nicely formatted error using the error handler
-  #
-  #   message:           The error message to print
-  #   where [optional]:  Location as per `locate`
-  #   detail [optional]: Location as per `locate`
-  #
-  printError = (label, message, where, detail) ->
-    console.error errorHandler.format
-      label: label
-      input: source
-      position: locate where
-      message: message
-      detail: locate detail
-
-  error = (message, where, detail) ->
-    printError "Semantic error", message, where, detail
-    errorCount++
-
-  warning = (message, where, detail) ->
-    printError "Semantic warning", message, where, detail
 
   #
   # Print a type error using the error handler
@@ -56,9 +23,9 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
   typeError = (name, expected, actual, expectedWhere) ->
     expectedLabels = ("'#{type}'" for type in alwaysArray expected).join ' or '
     if not expectedWhere?
-      error "Type clash for #{name}, expected #{expectedLabels}, got '#{actual.type()}'", actual
+      errorPrinter.error "Type clash for #{name}, expected #{expectedLabels}, got '#{actual.type()}'", actual
     else
-      error "Type clash for #{name}, got '#{actual.type()}', expected #{expectedLabels} as declared", actual, expectedWhere
+      errorPrinter.error "Type clash for #{name}, got '#{actual.type()}', expected #{expectedLabels} as declared", actual, expectedWhere
 
   #
   # Check for a type error by comparing `actual.type()` to `expected` types
@@ -382,11 +349,10 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
   #
   # Main entry point
   # Runs the semantic analyser by traversing the given AST.
-  # At this point, returns the augmented AST.
+  # Returns the augmented AST or undefined if errors were encountered.
   #
-  enhancedAST = MAliceSemantics.match ast, "trans", undefined, (m, i) -> console.error "ERROR while traversing AST in semantic analyzer"
-
-  if errorCount is 0
-    enhancedAST
-  else
-    undefined
+  errorPrinter = new ErrorPrinter source
+  enhancedAST = MAliceSemantics.match ast, "trans", undefined, (m, i) ->
+    throw "ERROR while traversing AST in semantic analyzer"
+  return undefined if errorPrinter.hasError()
+  enhancedAST

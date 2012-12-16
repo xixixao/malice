@@ -1,0 +1,39 @@
+module.exports = (OMeta, OMLib) ->
+
+  #
+  # This a handy tree walker - it will walk our AST and and update it.
+  # Thanks to the `recurse` rule we only have to implement the interesting cases.
+  # (take that, Haskell)
+  #
+  ometa MAliceASTWalker
+    recurse   :node = (trans | anything)*:ans             -> node[1..] = ans
+                                                             return node
+    trans     :node = transNode(node, node)
+    transNode :node = [:t ( &{@[t]} prepend([node]) apply(t)
+                          | &{t in @nodes} recurse(node)
+                          ):ans]                          -> ans
+
+  MAliceASTWalker::nodes = [
+    "Program"
+    "Function"
+    "Arguments"
+    "Argument"
+    "Block"
+    "Declarations"
+    "Assignment"
+    "Decrement"
+    "Increment"
+    "Output"
+    "Call"
+    "Return"
+    "Input"
+    "If"
+    "Until"
+    "Statements"
+    "Logic"
+    "Compare"
+    "Arithmetic"
+    "Unary"
+  ]
+
+  return MAliceASTWalker

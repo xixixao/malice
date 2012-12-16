@@ -4,45 +4,16 @@
 #   Semantic analysis, type and error checking
 #
 
-errorHandler = require './errorprinter'
+ErrorPrinter = require './semantics/ErrorPrinter'
 {concat, join} = require './metaCoffeeUtils'
 {log} = require './utils'
-{Node, Executes, Value, Reference, FunctionNode,
- SimpleType, FunctionType, ArrayType, ErrorType, types} = require './nodes'
+{Node, Executes, Value, types} = require './nodes'
 
 module.exports = (OMeta, OMLib) -> optimize: (source, ast) ->
 
-  ometa MAliceASTOptimizer
-    recurse   :node = (trans |  anything)*:ans -> node[1..] = ans; node
-    trans     :node = transNode(node, node)
-    transNode :node = [:t (!{@[t]?} anything* {node} | prepend([node]) apply(t)):ans] -> ans
+  MAliceASTWalker = require('./semantics/walker')(OMeta, OMLib)
 
-    Program recurse
-    Function recurse
-    Arguments recurse
-    Argument recurse
-    Block recurse
-    Declarations recurse
-    Assignment recurse
-    Decrement recurse
-    Increment recurse
-    Output recurse
-    Call recurse
-    Return recurse
-    Input recurse
-    If recurse
-    Until recurse
-    Statements recurse
-    Logic recurse
-    Compare recurse
-    Arithmetic recurse
-    Unary recurse
-
-
-  ometa MAliceStaticOptimizer extends MAliceASTOptimizer
-
-    Skip :node :pos :returns
-      -> node
+  ometa MAliceStaticOptimizer extends MAliceASTWalker
 
     If :node  :pos :returns trans:cond trans:ifReturns trans:elseReturns
       ->  if cond.constant? and cond.value()
@@ -70,14 +41,14 @@ module.exports = (OMeta, OMLib) -> optimize: (source, ast) ->
     Logic :node :pos :type '!' ['Logic' :bp :bt '!' trans:bb]
       ->  bb
     Logic :node :pos :type :op trans:b1 trans?:b2
-      ->  Result.maybe node, types.boolean, b1, b2
+      ->  @tryToEvaluate node, pos, op, types.boolean, b1, b2
 
     Compare :node :pos :type :op trans:e1 trans:e2
-      ->  res = Result.maybe node, types.boolean, e1, e2
+      ->  res = @tryToEvaluate node, pos, op, types.boolean, e1, e2
           return res
 
     Arithmetic :node :pos :type :op trans:e1 trans?:e2
-      ->  Result.maybe node, e1.type(), e1, e2
+      ->  @tryToEvaluate node, pos, op, e1.type(), e1, e2
 
     Unary :node :pos :type '+' trans:e
       ->  e
@@ -87,7 +58,7 @@ module.exports = (OMeta, OMLib) -> optimize: (source, ast) ->
       ->  ee
     Unary :node :pos :type :op trans:e
       ->  if e.constant?
-            new Result node, evaluate op, e
+            new Result node, evaluate pos, op, e
           else
             node
 
@@ -100,32 +71,34 @@ module.exports = (OMeta, OMLib) -> optimize: (source, ast) ->
     Sentence :node :pos :type :string
       ->  node
 
+  MAliceStaticOptimizer::tryToEvaluate = (node, pos, op, type, e1, e2) ->
+    if e1.constant and (!e2? or e2.constant) and (value = evaluate pos, op, e1, e2)?
+      new Result ['Value', pos, type], value
+    else
+      node
+
   class Result extends Value
     constructor: (node, value) ->
       node = Value.wrap super(node...), value: 3
       node.constant = true
       return node.value value
 
-    @maybe = (node, type, e1, e2) ->
-      if e1.constant and (!e2? or e2.constant)
-        new Result ['Value', node.position(), type], evaluate node[3], e1, e2
-      else
-        node
-
-  class Empty
-    constructor: (@node) ->
-      @empty = true
-
-  evaluate = (op, r1, r2) ->
+  evaluate = (pos, op, r1, r2) ->
     v1 = r1.value()
     v2 = r2?.value()
     switch op
-      when '/' then (Math.floor Math.abs v1 / v2) * (if v1 / v2 < 0 then -1 else 1)
+      when '/'
+        if v2 == 0
+          errorPrinter.warning "Division by 0 in constant expression", pos
+          undefined
+        else
+          (Math.floor Math.abs v1 / v2) * (if v1 / v2 < 0 then -1 else 1)
       else
         if v2?
           eval "#{v1.toString()} #{op} #{v2.toString()}"
         else
           eval "#{op}#{v1.toString()}"
 
+  errorPrinter = new ErrorPrinter source
   MAliceStaticOptimizer.match ast, "trans", undefined, (m, i) ->
     throw "ERROR while traversing AST in static optimizer"

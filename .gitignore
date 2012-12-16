@@ -26,7 +26,7 @@
 ignore
 
 #ignore build
-bin/*.js
+bin/*
 
 #ignore MAlice build files
 *.s

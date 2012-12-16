@@ -51,10 +51,10 @@ metacoffee (parser, semantics, staticoptimization, translation, codeGeneration, 
         if not syntaxTree?
           continue
         else
+          syntaxTree = staticoptimization.optimize sourceCode, syntaxTree
           if command.tree
             log syntaxTree
             continue if lastStage is 'tree'
-          #syntaxTree = staticoptimization.optimize sourceCode, syntaxTree
 
           # Translation to three-address code
           addressCode = translation.translate sourceCode, syntaxTree
