@@ -155,7 +155,6 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer) ->
       Return :node :result
         ->  #moves.push [returnRegister, result, node]
             addUsing node, result
-            addUsing node, returnRegister
       Output :node :value :type cCall(node)
         ->  addUsing node, value, "$di"
       Read :node :into :type cCall(node)
@@ -275,11 +274,11 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer) ->
     # Takes out a non-precolored, non-move-related node and pushes it onto colorables
     simplify = (canCoalesce = yes) ->
       ##log "simplify starts", graph
-      ##log ([temp, graph[temp].move] for temp of graph)
+      ##log "simplify", ([temp, graph[temp].move] for temp of graph)
       for temp, interferes of graph when not (interferes.move? or temp in registers)
         currentlyInterfere = interferes.filter (t) ->
           t isnt temp and graph[t]?
-        #log temp, currentlyInterfere.length
+        ##log "trying to simlify", temp, currentlyInterfere.length
         if currentlyInterfere.length < limit
           colorables.push [temp, interferes]
           ##log "simplify-remove", temp
@@ -293,7 +292,7 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer) ->
 
     # Takes out some move which doesn't make the graph less colorable
     coalesce = (canSimplify = yes) ->
-      #log "coalesce starts"
+      ##log "coalesce starts"
       for [a, b, node], i in moves when graph[a]? and graph[b]?
         if (a in graph[b]) or (a in registers and b in registers)
           for mi in [moves.length - 1..0] by -1
@@ -348,7 +347,7 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer) ->
           return simplify()
       if canSimplify
         # Cannot coalesce, but maybe can simplify
-        return coalesce no
+        return simplify no
       else
         #log "Freezing from coalescing"
         return freeze()
@@ -375,10 +374,10 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer) ->
         ((useCount[aName] ? 0) + (defineCount[aName] ? 0)) / aInters.length -
         ((useCount[bName] ? 0) + (defineCount[bName] ? 0)) / bInters.length
       #log ([temp, useCount[temp], defineCount[temp], interferes.length] for [temp, interferes] in spills)
-      ##log spills
+      #log spills
       for [temp, interferes] in spills
         colorables.push [temp, interferes]
-        ##log "spilling", temp
+        ##log "spilling", temp, interferes
         remove temp, graph
         return simplify()
       #log "no spills available"
@@ -396,8 +395,10 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer) ->
           colors[temp] = t
           break
         if not colors[temp]?
+          ##log temp
           for color in registers
             if (interferes.every (x) -> colors[x] isnt color)
+              ##log "chosen", color
               colors[temp] = color
               break
         # Our hopes vanished, there was no available color for this temporary
