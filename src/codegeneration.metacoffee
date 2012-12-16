@@ -1,4 +1,3 @@
-errorHandler = require './errorprinter'
 {concat} = require './metaCoffeeUtils'
 {log} = require './utils'
 {types} = require './nodes'
@@ -195,4 +194,4 @@ module.exports = (OMeta, OMLib) -> generateCode: (threeCode) ->
     output + '\n'
 
   MAliceCodeGeneration.matchAll threeCode, "list", undefined, (m, i) ->
-    console.error "ERROR while traversing three address code in code generation"
+    throw "ERROR while traversing three address code in code generation"

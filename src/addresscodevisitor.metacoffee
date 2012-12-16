@@ -1,4 +1,3 @@
-errorHandler = require './errorprinter'
 {concat, join} = require './metaCoffeeUtils'
 {log} = require './utils'
 

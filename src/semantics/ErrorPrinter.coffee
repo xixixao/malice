@@ -1,4 +1,4 @@
-errorHandler = require '../errorprinter'
+errorHandle = require '../errorHandle'
 
 # Prints and counts errors
 module.exports = class ErrorPrinter
@@ -18,7 +18,7 @@ module.exports = class ErrorPrinter
   #   detail [optional]: Location as per `locate`
   #
   _printError: (label, message, where, detail) ->
-    console.error errorHandler.format
+    console.error errorHandle.format
       label: label
       input: @source
       position: locate where

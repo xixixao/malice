@@ -4,7 +4,7 @@
 #   Grammar definitions and abstract syntax tree generation
 #
 
-errorHandler = require './errorprinter'
+errorHandle = require './errorHandle'
 {concat, join} = require './metaCoffeeUtils'
 {log} = require './utils'
 
@@ -151,7 +151,7 @@ module.exports = (OMeta, OMLib) -> parse: (input) ->
     initialize       -> @keywords = getKeywords @usedTokens
 
   formatError = (interpreter, position) ->
-    errorHandler.formatOmetaError "Syntactic error", interpreter, position
+    errorHandle.formatOmetaError "Syntactic error", interpreter, position
 
   #
   # Main entry point
