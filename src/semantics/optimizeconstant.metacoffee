@@ -24,12 +24,12 @@ module.exports = (OMeta, OMLib) -> optimize: (source, ast) ->
             new Executes 'If', pos, returns, cond, ifReturns, elseReturns
 
     Until :node :pos :returns trans:cond trans:body
-      ->  if cond.constant? and cond.value() or body.empty?
-            new Executes 'Skip'
-          else if cond.constant? and !cond.value() and !body.empty?
-            # issue infinite looop warning
-          else
-            new Executes 'Until', pos, returns, cond, body
+      ->  if cond.constant?
+            if cond.value()
+              return new Executes 'Skip'
+            else
+              errorPrinter.warning "Constant condition value will cause infinite loop", node[3]
+          new Executes 'Until', pos, returns, cond, body
 
     Logic :node :pos :type '!' ['Logic' :bp :bt '!' trans:bb]
       ->  bb

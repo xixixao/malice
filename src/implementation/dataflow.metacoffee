@@ -501,13 +501,13 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer, level) ->
 
     shouldBeEliminated = (node, nodes) ->
       for [definition] in node.defines when not (definition in registers)
-        if (node.liveout.every ([used]) -> log used; used isnt definition)
+        if (node.liveout.every ([used]) -> used isnt definition)
           for use in node.using
             for x in nodes when not x.label?
               for set in ['livein', 'liveout']
                 x[set] = x[set].filter (xUse) -> xUse isnt use
           removeNode node
-          log "Dead ", node
+          #log "Dead ", node
           return node.removed = true
       false
 
@@ -559,7 +559,7 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer, level) ->
 
   [coloring, nodes] = dataFlowAnalysis instructions, 0
   #log "coloring", coloring
-  log "nodes", nodes
+  #log "nodes", nodes
   res = allocateRegisters nodes, coloring
   #log res
   return res
