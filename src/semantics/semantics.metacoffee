@@ -352,7 +352,13 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
   # Returns the augmented AST or undefined if errors were encountered.
   #
   errorPrinter = new ErrorPrinter source
-  {error, warning} = errorPrinter
+
+  error = ->
+    errorPrinter.error arguments...
+
+  warning = ->
+    errorPrinter.warning arguments...
+
   enhancedAST = MAliceSemantics.match ast, "trans", undefined, (m, i) ->
     throw "ERROR while traversing AST in semantic analyzer"
   return undefined if errorPrinter.hasError()
