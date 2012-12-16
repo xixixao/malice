@@ -23,9 +23,9 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
   typeError = (name, expected, actual, expectedWhere) ->
     expectedLabels = ("'#{type}'" for type in alwaysArray expected).join ' or '
     if not expectedWhere?
-      errorPrinter.error "Type clash for #{name}, expected #{expectedLabels}, got '#{actual.type()}'", actual
+      error "Type clash for #{name}, expected #{expectedLabels}, got '#{actual.type()}'", actual
     else
-      errorPrinter.error "Type clash for #{name}, got '#{actual.type()}', expected #{expectedLabels} as declared", actual, expectedWhere
+      error "Type clash for #{name}, got '#{actual.type()}', expected #{expectedLabels} as declared", actual, expectedWhere
 
   #
   # Check for a type error by comparing `actual.type()` to `expected` types
@@ -105,7 +105,7 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
         @prepareScope = [args, returnType, functionNode]
         return functionNode
       }:fun trans:body
-      -> errorPrinter.warning "There are paths in '#{name}' that don't return a value" unless body.doesReturn() or returnType.equals types.void
+      -> warning "There are paths in '#{name}' that don't return a value" unless body.doesReturn() or returnType.equals types.void
          append fun, [body]
 
     Arguments :pos trans*:args
@@ -352,6 +352,7 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
   # Returns the augmented AST or undefined if errors were encountered.
   #
   errorPrinter = new ErrorPrinter source
+  {error, warning} = errorPrinter
   enhancedAST = MAliceSemantics.match ast, "trans", undefined, (m, i) ->
     throw "ERROR while traversing AST in semantic analyzer"
   return undefined if errorPrinter.hasError()
