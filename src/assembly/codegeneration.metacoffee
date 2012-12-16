@@ -58,8 +58,8 @@ module.exports = (OMeta, OMLib) -> generateCode: (threeCode) ->
           '\tmov rbp, rsp']
     End :name
       -> args = []
-         for argument in @liftedArguments.reverse()
-           args.unshift "\tmov [rbp+#{16+8*--@argumentCount}], #{@accessVariable argument}"
+         #for argument in @liftedArguments.reverse()
+           #args.unshift "\tmov [rbp+#{16+8*--@argumentCount}], #{@accessVariable argument}"
          @liftedArguments = []
          concat args, ['\tleave',
                        '\tret']
@@ -88,9 +88,9 @@ module.exports = (OMeta, OMLib) -> generateCode: (threeCode) ->
            @liftedArguments.push name
          ["\tmov #{@accessVariable name}, [rbp+#{16+8*@argumentCount++}]"]
     Push :name
-      ->  ["\tmov #{@accessVariable name}, [rbp+#{0}]"]
+      ->  ["\tpush #{@accessVariable name}"]
     Pop :name
-      ->  ["\tmov [rbp+#{0}], #{@accessVariable name}"]
+      ->  ["\tpop #{@accessVariable name}"]
     ArrayAccess :into :array :i :type
       -> ["\tmov rax, #{@accessVariable i}",
           "\tmov #{@accessVariable into}, [#{@accessVariable array}+#{sizeof type}*rax]"]
@@ -108,8 +108,6 @@ module.exports = (OMeta, OMLib) -> generateCode: (threeCode) ->
          result
     Assignment :into :from
       -> ["\tmov #{@accessVariable into}, #{@accessVariable from}"]
-    PtrAssignment :into :from
-      -> ["\tmov [#{@accessVariable into}], #{@accessVariable from}"]
     ValAssignment :into :value :type
       -> if type.equals types.sentence
            return ["\tmov #{@accessVariable into}, #{@accessData value}"]
