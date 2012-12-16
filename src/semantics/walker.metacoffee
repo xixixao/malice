@@ -13,6 +13,8 @@ module.exports = (OMeta, OMLib) ->
                           | &{t in @nodes} recurse(node)
                           ):ans]                          -> ans
 
+    Skip :node -> node
+
   MAliceASTWalker::nodes = [
     "Program"
     "Function"

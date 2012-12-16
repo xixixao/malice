@@ -11,6 +11,7 @@ clc        = require 'cli-color'
 require './colorConsole'
 
 # Command options
+command._name = 'compile'
 command
   .version('MAlice Compiler in CofeeScript and MetaCoffee, version 0.0.1')
   .usage('[options] <file ...>')
@@ -18,14 +19,31 @@ command
   .option('-A, --threecode', 'print out the three address code')
   .option('-B, --allocation', 'print out the three address code with allocated registers')
   .option('-S, --assembly', 'print out the generated assembly code')
-  .option('-e, --extension <e>', 'set an extension for the executable')
-  .parse(process.argv)
+  .option('-O, --optim <level>', "set the level of optimization, higher include lower\n
+                         <0> none\n
+                         <1> constant expression evaluation\n
+                         <2> unreachable code removal\n
+                         <3> dead-code removal (default)", parseInt, 3)
+  .option('-e, --extension <ext>', 'set an extension for the executable')
+
+command.on '--help', ->
+  console.log '  Examples:'
+  console.log ''
+  console.log '    $ compile example.alice -t O 0'
+  console.log '    $ compile example.alice -e .exe'
+  console.log ''
+
+command.parse process.argv
+
 command.extension ?= ""
 
 # Compile files
 metacoffee = require './loadMetaCoffee'
 optimizeWith = require './implementation/optimization'
-metacoffee (parser, semantics, staticOptimization, translation, dataFlowAnalysis, codeGeneration) ->
+metacoffee (parser,
+            semantics, constantEvalution, unreachableRemoval,
+            translation, dataFlowAnalysis,
+            codeGeneration) ->
 
   options = ['tree', 'threecode', 'allocation', 'assembly', 'run']
   lastStage = option for option in options when command[option]
@@ -52,7 +70,10 @@ metacoffee (parser, semantics, staticOptimization, translation, dataFlowAnalysis
         if not syntaxTree?
           continue
         else
-          syntaxTree = staticOptimization.optimize sourceCode, syntaxTree
+          if command.optim >= 1
+            syntaxTree = constantEvalution.optimize sourceCode, syntaxTree
+          if command.optim >= 2
+            syntaxTree = unreachableRemoval.optimize sourceCode, syntaxTree
           if command.tree
             log syntaxTree
             continue if lastStage is 'tree'
@@ -64,7 +85,7 @@ metacoffee (parser, semantics, staticOptimization, translation, dataFlowAnalysis
             continue if lastStage is 'threecode'
 
           # Optimization and register allocation
-          addressCode = optimizeWith addressCode, [dataFlowAnalysis]
+          addressCode = optimizeWith addressCode, [dataFlowAnalysis], command.optim
           if command.allocation
             log addressCode
             continue if lastStage is 'allocation'
