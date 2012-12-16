@@ -235,7 +235,7 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer) ->
 
   build = (nodes, precolored) ->
     graph = {}
-    log "finding interference for", concat precolored, nodes
+    #log "finding interference for", concat precolored, nodes
     for x in concat precolored, nodes when not x.label?
       for [v] in x.liveout
         graph[v] = union (graph[v] ? []), x.liveout.map ([v2]) -> v2
@@ -303,12 +303,13 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer) ->
               moves.splice mi, 1
             categorize graph, moves
           return simplify()
-        else if not (a in registers or b in registers)
+        else if not (isRegister(a) or isRegister(b))
           log "nottregs", a, b
           significant = union(graph[a], graph[b]).filter (t) ->
             not (t in [a, b]) and graph[t].length >= limit
           coalescable = significant.length < limit
         else
+          log "trying to coalesce", a, b
           [r, notR] = if a in registers then [a, b] else [b, a]
           coalescable = graph[notR].every (t) ->
             t is notR or t in registers or graph[t].length < limit or r in graph[t]
@@ -540,7 +541,7 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer) ->
 
     deadCodeElimination nodes
 
-    log "after dead code", nodes
+    #log "after dead code", nodes
 
     interferenceGraph = categorize build(nodes, precolorRegisterNodes()), moves
     #log key, val for key, val of interferenceGraph when not (key in registers)
