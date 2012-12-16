@@ -20,10 +20,13 @@ module.exports = (OMeta, OMLib) -> generateCode: (threeCode) ->
     '|': 'or'
     '^': 'xor'
     '&': 'and'
+    '||': 'or'
+    '&&': 'and'
 
   unaryOpInstructions =
     '-': 'neg'
     '~': 'not'
+    '!': ''
 
   cmpOpInstructions =
     '==': 'sete'
@@ -128,6 +131,10 @@ module.exports = (OMeta, OMLib) -> generateCode: (threeCode) ->
            ["\tcmp #{@accessVariable into}, #{@accessVariable e1}",
             "\t#{cmpOpInstructions[op]} al",
             "\tmovzx #{@accessVariable into}, al"]
+         else if op is '!'
+           ["\tmov #{@accessVariable into}, #{@accessVariable e1}",
+            "\tnot #{@accessVariable into}",
+            "\tadd #{@accessVariable into}, 2"]
          else
            if e2?
              ["\t#{opInstructions[op]} #{@accessVariable into}, #{@accessVariable e1}"]
