@@ -129,10 +129,17 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer) ->
       Pop :node :name
         ->  addDefines node, name
       Assignment :node :into :from assignment(node, into, from)
-        ->  moves.push [fromPointer(into), fromPointer(from), node]
+        ->  if not (Array.isArray into and Array.isArray from)
+              moves.push [fromPointer(into), fromPointer(from), node]
       assignment :node :into :from
-        ->  addDefines node, into unless Array.isArray into
+        ->  if Array.isArray into
+              addUsing into
+            else
+              addDefines node, into
             addUsing node, from
+            if Array.isArray into and Array.isArray from
+              addUsing node, "$ax"
+              addDefines node, "$ax"
       ValAssignment :node :into :value :type
         ->  addDefines node, into
       Param :node :value
