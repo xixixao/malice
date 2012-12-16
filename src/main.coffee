@@ -23,8 +23,8 @@ command
 
 # Compile files
 metacoffee = require './loadMetaCoffee'
-optimization = require './optimization'
-metacoffee (parser, semantics, staticoptimization, translation, codeGeneration, addressCodeOptimization) ->
+optimizeWith = require './implementation/optimization'
+metacoffee (parser, semantics, staticOptimization, translation, dataFlowAnalysis, codeGeneration) ->
 
   options = ['tree', 'threecode', 'allocation', 'assembly', 'run']
   lastStage = option for option in options when command[option]
@@ -51,7 +51,7 @@ metacoffee (parser, semantics, staticoptimization, translation, codeGeneration, 
         if not syntaxTree?
           continue
         else
-          syntaxTree = staticoptimization.optimize sourceCode, syntaxTree
+          syntaxTree = staticOptimization.optimize sourceCode, syntaxTree
           if command.tree
             log syntaxTree
             continue if lastStage is 'tree'
@@ -63,7 +63,7 @@ metacoffee (parser, semantics, staticoptimization, translation, codeGeneration, 
             continue if lastStage is 'threecode'
 
           # Optimization and register allocation
-          addressCode = optimization addressCode, [addressCodeOptimization]
+          addressCode = optimizeWith addressCode, [dataFlowAnalysis]
           if command.allocation
             log addressCode
             continue if lastStage is 'allocation'

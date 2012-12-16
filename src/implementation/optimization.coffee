@@ -1,5 +1,5 @@
-{concat, join} = require './metaCoffeeUtils'
-{log} = require './utils'
+{concat, join} = require './../metaCoffeeUtils'
+{log} = require './../utils'
 
 module.exports = optimize = (procedures, optimizers) ->
 

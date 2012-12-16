@@ -4,10 +4,8 @@
 #   Translates annotated AST into Three Address Code
 #
 
-{concat, join} = require './metaCoffeeUtils'
-{log} = require './utils'
-{Node, Executes, Value, Reference, FunctionNode,
- SimpleType, FunctionType, ArrayType, ErrorType, types} = require './nodes'
+{concat, join} = require './../metaCoffeeUtils'
+{log} = require './../utils'
 Namer = require './namer'
 
 module.exports = (OMeta, OMLib) -> translate: (source, ast) ->

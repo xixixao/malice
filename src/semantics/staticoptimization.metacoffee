@@ -4,14 +4,14 @@
 #   Semantic analysis, type and error checking
 #
 
-ErrorPrinter = require './semantics/ErrorPrinter'
-{concat, join} = require './metaCoffeeUtils'
-{log} = require './utils'
+{concat, join} = require './../metaCoffeeUtils'
+{log} = require './../utils'
+ErrorPrinter = require './ErrorPrinter'
 {Node, Executes, Value, types} = require './nodes'
 
 module.exports = (OMeta, OMLib) -> optimize: (source, ast) ->
 
-  MAliceASTWalker = require('./semantics/walker')(OMeta, OMLib)
+  MAliceASTWalker = require('./walker')(OMeta, OMLib)
 
   ometa MAliceStaticOptimizer extends MAliceASTWalker
 

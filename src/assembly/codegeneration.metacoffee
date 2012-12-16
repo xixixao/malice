@@ -1,6 +1,6 @@
-{concat} = require './metaCoffeeUtils'
-{log} = require './utils'
-{types} = require './nodes'
+{concat} = require './../metaCoffeeUtils'
+{log} = require './../utils'
+{types} = require './../semantics/nodes'
 
 module.exports = (OMeta, OMLib) -> generateCode: (threeCode) ->
 

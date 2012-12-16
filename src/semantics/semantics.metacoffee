@@ -4,9 +4,9 @@
 #   Semantic analysis, type and error checking
 #
 
-ErrorPrinter = require './semantics/ErrorPrinter'
-{concat, join, append, ObjectifiedArray} = require './metaCoffeeUtils'
-{log} = require './utils'
+ErrorPrinter = require './ErrorPrinter'
+{concat, join, append, ObjectifiedArray} = require './../metaCoffeeUtils'
+{log} = require './../utils'
 {Node, Executes, Block, Value, Reference, FunctionNode,
  SimpleType, FunctionType, ArrayType, ErrorType, types} = require './nodes'
 

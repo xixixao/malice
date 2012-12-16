@@ -1,20 +1,22 @@
 # Module dependencies.
 metacoffee = require 'metacoffee'
-parser     = require './parser'
-semantics  = require './semantics'
-staticopt  = require './staticoptimization'
-translate  = require './translation'
-codegen    = require './codegeneration'
-code3      = require './addresscodevisitor'
+parser     = require './parse/parser'
+semantics  = require './semantics/semantics'
+staticopt  = require './semantics/staticoptimization'
+translate  = require './implementation/translation'
+dataflow   = require './implementation/dataflow'
+codegen    = require './assembly/codegeneration'
 
 module.exports = (callback) ->
 
   # Load MetaCoffee dependencies
   metacoffee (ometa) ->
-    parser = parser ometa.OMeta, ometa.OMLib
-    semantics = semantics ometa.OMeta, ometa.OMLib
-    staticopt = staticopt ometa.OMeta, ometa.OMLib
-    translate = translate ometa.OMeta, ometa.OMLib
-    codegen = codegen ometa.OMeta, ometa.OMLib
-    code3 = code3 ometa.OMeta, ometa.OMLib
-    callback(parser, semantics, staticopt, translate, codegen, code3)
+    base = ometa.OMeta
+    lib  = ometa.OMLib
+    parser    = parser    base, lib
+    semantics = semantics base, lib
+    staticopt = staticopt base, lib
+    translate = translate base, lib
+    codegen   = codegen   base, lib
+    dataflow  = dataflow  base, lib
+    callback(parser, semantics, staticopt, translate, dataflow, codegen)

@@ -4,9 +4,9 @@
 #   Grammar definitions and abstract syntax tree generation
 #
 
-errorHandle = require './errorHandle'
-{concat, join} = require './metaCoffeeUtils'
-{log} = require './utils'
+errorHandle = require './../errorHandle'
+{concat, join} = require './../metaCoffeeUtils'
+{log} = require './../utils'
 
 module.exports = (OMeta, OMLib) -> parse: (input) ->
   {Set} = OMLib
