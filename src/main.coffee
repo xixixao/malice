@@ -73,8 +73,7 @@ metacoffee (parser,
           if command.optim >= 1
             syntaxTree = constantEvalution.optimize sourceCode, syntaxTree
           if command.optim >= 2
-            #syntaxTree = unreachableRemoval.optimize sourceCode, syntaxTree
-            null
+            syntaxTree = unreachableRemoval.optimize sourceCode, syntaxTree
           if command.tree
             log syntaxTree
             continue if lastStage is 'tree'
