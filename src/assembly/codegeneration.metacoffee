@@ -111,8 +111,6 @@ module.exports = (OMeta, OMLib) -> generateCode: (threeCode) ->
     ValAssignment :into :value :type
       -> if type.equals types.sentence
            return ["\tmov #{@accessVariable into}, #{@accessData value}"]
-         if type.equals types.letter
-           value = value.charCodeAt 0
          ["\tmov #{@accessVariable into}, #{value}"]
     CallAssignment :into :name :argumentCount
       -> ["\tcall #{name}",
@@ -157,7 +155,11 @@ module.exports = (OMeta, OMLib) -> generateCode: (threeCode) ->
          @argumentCount = 0
 
   MAliceCodeGeneration::accessVariable = (variable) ->
-    'r' + variable[1..]
+    if Array.isArray variable
+      [address] = variable
+      "[rbp+#{16+8*address}]"
+    else
+      'r' + variable[1..]
 
   MAliceCodeGeneration::accessData = (string) ->
     pos = @data.indexOf string
