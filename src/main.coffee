@@ -18,8 +18,9 @@ command
   .option('-A, --threecode', 'print out the three address code')
   .option('-B, --allocation', 'print out the three address code with allocated registers')
   .option('-S, --assembly', 'print out the generated assembly code')
-  .option('-r, --run', 'print out a bash exec list for all files')
+  .option('-e, --extension <e>', 'set an extension for the executable')
   .parse(process.argv)
+command.extension ?= ""
 
 # Compile files
 metacoffee = require './loadMetaCoffee'
@@ -75,22 +76,20 @@ metacoffee (parser, semantics, staticOptimization, translation, dataFlowAnalysis
             continue if lastStage is 'assembly'
           fileName = file.replace new RegExp("#{path.extname file}$"), ''
           fileName = "out"
+
           do (fileName) ->
             fs.writeFileSync "#{fileName}.s", assemblyCode
             exec "as #{fileName}.s -o #{fileName}.o", (error, stdout, stderr) ->
               console.log stdout
               console.error stderr
               if error
-                console.error "as error: #{error}"
+                console.error "'as' error: #{error}"
                 return
-              exec "gcc lib/utils.c #{fileName}.o -o #{fileName}", (error, stdout, stderr) ->
+              build = "gcc lib/utils.c #{fileName}.o -o #{fileName}#{command.extension}"
+              exec build, (error, stdout, stderr) ->
                 console.log stdout
                 console.error stderr
                 if error
-                  console.error "gcc error: #{error}"
+                  console.error "'gcc' error: #{error}"
                   return
-
-          # Exec list generation
-          if command.run
-            exec "echo 'exec #{fileName}' >> exec-list"
 

@@ -2,15 +2,15 @@ clcTrim    = require 'cli-color/lib/trim'
 tty        = require 'tty'
 
 builtinError = console.error
-console.error = (message) ->
+console.error = (input...) ->
   if tty.isatty process.stderr.fd
-    builtinError message
+    builtinError input...
   else
-    builtinError clcTrim message
+    builtinError clcTrim input...
 
 builtinLog = console.log
-console.log = (message) ->
+console.log = (input...) ->
   if tty.isatty process.stdout.fd
-    builtinLog message
+    builtinLog input...
   else
-    builtinLog clcTrim message
+    builtinLog clcTrim input...

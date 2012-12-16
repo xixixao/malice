@@ -158,11 +158,11 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer) ->
             addUsing node, result
             addUsing node, returnRegister
       Output :node :value :type cCall(node)
-        ->  addUsing node, value
+        ->  addUsing node, value, "$di"
       Read :node :into :type cCall(node)
         ->  addDefines node, into
       cCall :node
-        ->  addLiveOut node, cCallerSaveRegisters...
+        ->  addDefines node, cCallerSaveRegisters...
 
     # Construct Control Flow Graph
     # ----------------------------

@@ -22,15 +22,20 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
 
     Program :node :pos :scope enterScope(scope) trans:declarations
       ->  hatta = scope.get 'hatta'
-          [freePushes, freePops] = @passFreeVariables hatta.scope()
-          concat @functions, [concat [
-            ['Label', 'main']
-            ['Begin']
-          ], declarations, freePushes, [
-            ['Call', 'hatta', 0]
-          ], freePops, [
-            ['End', 'main']
-          ]]
+          if declarations.length == 0
+            main = hatta.code
+            main[0][1] = "main" #rename from hatta to main
+            concat @functions.filter((f) -> f isnt main), [main]
+          else
+            [freePushes, freePops] = @passFreeVariables hatta.scope()
+            concat @functions, [concat [
+              ['Label', 'main']
+              ['Begin']
+            ], declarations, freePushes, [
+              ['Call', 'hatta', 0]
+            ], freePops, [
+              ['End', 'main']
+            ]]
 
     Function :node :pos :type :name :returnType [trans*:args] :scope {
           for freeName, freeNode of scope.frees
@@ -46,6 +51,7 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
             ['End', mangledName]
           ]
           decl.function = true
+          node.code = decl
           decl
 
     Argument :node :pos :type :name
