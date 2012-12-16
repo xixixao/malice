@@ -81,13 +81,17 @@ module.exports = (OMeta, OMLib) -> generateCode: (threeCode) ->
       -> ["\tjmp #{to}"]
     Param :name
       -> ["\tpush #{@accessVariable name}"]
-    ParamPop :name
+    ParamPop :name anything?:useless
       -> ["\tpop #{@accessVariable name}"]
     Argument :name :type
       -> if Array.isArray name
            [name] = name
            @liftedArguments.push name
          ["\tmov #{@accessVariable name}, [rbp+#{16+8*@argumentCount++}]"]
+    Push :name
+      ->  ["\tmov #{@accessVariable name}, [rbp+#{0}]"]
+    Pop :name
+      ->  ["\tmov [rbp+#{0}], #{@accessVariable name}"]
     ArrayAccess :into :array :i :type
       -> ["\tmov rax, #{@accessVariable i}",
           "\tmov #{@accessVariable into}, [#{@accessVariable array}+#{sizeof type}*rax]"]
@@ -190,4 +194,5 @@ module.exports = (OMeta, OMLib) -> generateCode: (threeCode) ->
     output = output.join '\n'
     output + '\n'
 
-  MAliceCodeGeneration.matchAll threeCode, "list", undefined, (m, i) -> console.error "ERROR while traversing AST in code generation"
+  MAliceCodeGeneration.matchAll threeCode, "list", undefined, (m, i) ->
+    console.error "ERROR while traversing three address code in code generation"

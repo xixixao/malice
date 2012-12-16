@@ -257,7 +257,8 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
       freePops.push ['ParamPop', mangledName]
     [freePushes, freePops]
 
-  addressCode = MAliceTranslator.match ast, "trans", undefined, (m, i) -> console.error "ERROR while traversing AST in translator"
+  addressCode = MAliceTranslator.match ast, "trans", undefined, (m, i) ->
+    console.error "ERROR while traversing AST in translator"
   addressCode.namer = namer
 
   return addressCode

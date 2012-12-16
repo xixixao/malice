@@ -97,72 +97,52 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer) ->
     # Fill information about instructions using firstAfter
     moves = []
     ometa MAliceControlFlowAnalysis
-
       list        = trans* end
       trans :node = visit(node, node)
       visit :node = [:t prepend([node]) apply(t)] -> node
-
       Label :node :name
       Begin :node
         ->  addDefines node, calleeRegs...
-
       End :node :name
         ->  node.next = []
             addUsing node, calleeRegs...
-
       IfFalse :node :condition :jumpto if(node, condition, jumpto)
       IfTrue :node :condition :jumpto if(node, condition, jumpto)
-
       if :node :condition :jumpto
         ->  node.next.push firstAfter[jumpto]
             addUsing node, condition
-
       Jump :node :to
         ->  node.next = [firstAfter[to]]
-
       Argument :node :name :type declaration(node, name)
       Array :node :name :type :size declaration(node, name)
         ->  addUsing node, size, cReturnRegister
-
       declaration :node :name
         ->  addDefines node, name
-
       ArrayAccess :node :into :array :index :type assignment(node, into, array)
         ->  addUsing node, index, "$ax"
             addDefines node, cCallerSaveRegisters
-
       Decrement :node :variable assignment(node, variable, variable)
       Increment :node :variable assignment(node, variable, variable)
-
       Call :node :name :argumentCount
         ->  addLiveOut node, callerRegs...
-
       Push :node :name
         ->  addUsing node, name
-
       Pop :node :name
         ->  addDefines node, name
-
       Assignment :node :into :from assignment(node, into, from)
         ->  moves.push [fromPointer(into), fromPointer(from), node]
-
       assignment :node :into :from
         ->  addDefines node, into unless Array.isArray into
             addUsing node, from
-
       ValAssignment :node :into :value :type
         ->  addDefines node, into
-
       Param :node :value
         ->  addUsing node, value
-
       ParamPop :node :variable anything?:useless
         ->  addDefines node, variable
-
       CallAssignment :node :into :name :argumentCount
         ->  addDefines node, into
             addLiveOut node, callerRegs...
-
       ImmAssignment :node :into :operator :e1 anything?:e2
         ->  addDefines node, into
             addUsing node, e1
@@ -171,22 +151,17 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer) ->
               addUsing node, "$ax", "$dx"
             else if operator in ['==', '!=', '<=', '>=', '<', '>']
               addUsing node, "$ax"
-
       ArrayAssignment :node :array :index :value :type
         ->  addUsing node, array, index, value, "$ax"
             addDefines node, cCallerSaveRegisters
-
       Return :node :result
         ->  #moves.push [returnRegister, result, node]
             addUsing node, result
             addUsing node, returnRegister
-
       Output :node :value :type cCall(node)
         ->  addUsing node, value
-
       Read :node :into :type cCall(node)
         ->  addDefines node, into
-
       cCall :node
         ->  addLiveOut node, cCallerSaveRegisters...
 
