@@ -291,11 +291,6 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer) ->
     coalesce = (canSimplify = yes) ->
       #log "coalesce starts"
       for [a, b, node], i in moves when graph[a]? and graph[b]?
-        #if a is b
-        #  #delete this move
-        #  simplify() #will loop forever
-        #else
-
         if (a in graph[b]) or (a in registers and b in registers)
           for mi in [moves.length - 1..0] by -1
             [c, d] = move = moves[mi]
@@ -371,8 +366,10 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer) ->
       spills = for temp, interferes of graph when not (temp in registers)
         [temp, interferes]
       spills.sort ([aName, aInters], [bName, bInters]) ->
-        (useCount[aName] ? 0) + (defineCount[aName] ? 0) / aInters.length -
-        (useCount[bName] ? 0) + (defineCount[bName] ? 0) / bInters.length
+        ((useCount[aName] ? 0) + (defineCount[aName] ? 0)) / aInters.length -
+        ((useCount[bName] ? 0) + (defineCount[bName] ? 0)) / bInters.length
+      #log ([temp, useCount[temp], defineCount[temp], interferes.length] for [temp, interferes] in spills)
+      #log spills
       for [temp, interferes] in spills
         colorables.push [temp, interferes]
         #log "spilling", temp
@@ -404,6 +401,7 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer) ->
         else
           #log "color chocesn", temp, colors[temp]
       if actualSpills.length is 0
+        #log "select finsihed", colors
         # Success, we are done!
         return [colors, nodes]
       else

@@ -57,10 +57,7 @@ module.exports = (OMeta, OMLib) -> optimize: (source, ast) ->
     Unary :node :pos :type '~' ['Unary' :ep :et '~' trans:ee]
       ->  ee
     Unary :node :pos :type :op trans:e
-      ->  if e.constant?
-            new Result node, evaluate pos, op, e
-          else
-            node
+      ->  @tryToEvaluate node, pos, op, e.type(), e
 
     Number :node :pos :type :n
       ->  new Result node, parseInt n
