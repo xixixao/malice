@@ -164,7 +164,7 @@ module.exports = (OMeta, OMLib) -> generateCode: (threeCode) ->
   MAliceCodeGeneration::accessVariable = (variable) ->
     if Array.isArray variable
       [address] = variable
-      "[rbp+#{16+8*address}]"
+      "qword ptr [rbp+#{16+8*address}]"
     else
       'r' + variable[1..]
 

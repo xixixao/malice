@@ -105,7 +105,7 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
         @prepareScope = [args, returnType, functionNode]
         return functionNode
       }:fun trans:body
-      -> warning "There are paths in '#{name}' that don't return a value" unless body.doesReturn() or returnType.equals types.void
+      -> errorPrinter.warning "There are paths in '#{name}' that don't return a value" unless body.doesReturn() or returnType.equals types.void
          append fun, [body]
 
     Arguments :pos trans*:args
