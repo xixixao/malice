@@ -238,6 +238,7 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer) ->
     for x in concat precolored, nodes when not x.label?
       for [v] in x.liveout
         graph[v] = union (graph[v] ? []), x.liveout.map ([v2]) -> v2
+
     return graph
 
   categorize = (graph, moves) ->
@@ -274,7 +275,7 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer) ->
     # Takes out a non-precolored, non-move-related node and pushes it onto colorables
     simplify = (canCoalesce = yes) ->
       log "simplify starts"
-      for temp, interferes of graph when not (interferes.move? or temp in registers)
+      for temp, interferes of graph when not (log temp; interferes.move? or temp in registers)
         if interferes.length < limit
           colorables.push [temp, interferes]
           log "simplify-remove", temp
