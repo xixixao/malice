@@ -162,7 +162,7 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer) ->
       Read :node :into :type cCall(node)
         ->  addDefines node, into
       cCall :node
-        ->  addDefines node, cCallerSaveRegisters...
+        ->  addLiveOut node, cCallerSaveRegisters...
 
     # Construct Control Flow Graph
     # ----------------------------
