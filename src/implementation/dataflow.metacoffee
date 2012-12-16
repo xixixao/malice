@@ -267,18 +267,22 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer) ->
 
     # Removes all occurences of temp from the interference graph
     remove = (temp) ->
-      interferes = graph[temp]
-      for x in interferes
-        graph[x] = graph[x]?.filter (t) -> t isnt temp
+      #interferes = graph[temp]
+      #for x in interferes
+      #  graph[x] = graph[x]?.filter (t) -> t isnt temp
       delete graph[temp]
 
     # Takes out a non-precolored, non-move-related node and pushes it onto colorables
     simplify = (canCoalesce = yes) ->
-      #log "simplify starts"
+      ##log "simplify starts", graph
+      ##log ([temp, graph[temp].move] for temp of graph)
       for temp, interferes of graph when not (interferes.move? or temp in registers)
-        if interferes.length < limit
+        currentlyInterfere = interferes.filter (t) ->
+          t isnt temp and graph[t]?
+        #log temp, currentlyInterfere.length
+        if currentlyInterfere.length < limit
           colorables.push [temp, interferes]
-          #log "simplify-remove", temp
+          ##log "simplify-remove", temp
           remove temp, graph
           return coalesce()
       if canCoalesce
@@ -301,22 +305,22 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer) ->
         else if not (isRegister(a) or isRegister(b))
           #log "nottregs", a, b
           significant = union(graph[a], graph[b]).filter (t) ->
-            not (t in [a, b]) and graph[t].length >= limit
+            graph[t]? and not (t in [a, b]) and graph[t].length >= limit
           coalescable = significant.length < limit
         else
-          #log "trying to coalesce", a, b
+          ##log "trying to coalesce", a, b
           [r, notR] = if a in registers then [a, b] else [b, a]
           coalescable = graph[notR].every (t) ->
-            t is notR or t in registers or graph[t].length < limit or r in graph[t]
+            !graph[t]? or t is notR or t in registers or graph[t].length < limit or r in graph[t]
         if coalescable
           # Create new coalesced temporary
           newTemp = a + "," + b
-          #log "coalescing", newTemp
+          ##log "coalescing", newTemp
           oldNames = [a, b]
           # Replace old temporaries with the new joined one
           for temp, interferes of graph
-            graph[temp] = graph[temp].map (old) ->
-              if old in oldNames then newTemp else old
+            for old in interferes when old in oldNames
+              interferes.push newTemp
           # Add new joined interference node and delete old nodes
           graph[newTemp] = union graph[a], graph[b]
           delete graph[a]
@@ -352,7 +356,9 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer) ->
     # Both coalescing and simplifying failed, we won't be able to coalesce some move
     freeze = ->
       for temp, interferes of graph when interferes.move?
-        if interferes.length < limit
+        currentlyInterfere = interferes.filter (t) ->
+          t isnt temp and graph[t]?
+        if currentlyInterfere.length < limit
           delete interferes.move
           moves = moves.filter (move) -> not (temp in move)
           return simplify()
@@ -369,10 +375,10 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer) ->
         ((useCount[aName] ? 0) + (defineCount[aName] ? 0)) / aInters.length -
         ((useCount[bName] ? 0) + (defineCount[bName] ? 0)) / bInters.length
       #log ([temp, useCount[temp], defineCount[temp], interferes.length] for [temp, interferes] in spills)
-      #log spills
+      ##log spills
       for [temp, interferes] in spills
         colorables.push [temp, interferes]
-        #log "spilling", temp
+        ##log "spilling", temp
         remove temp, graph
         return simplify()
       #log "no spills available"
@@ -401,11 +407,11 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer) ->
         else
           #log "color chocesn", temp, colors[temp]
       if actualSpills.length is 0
-        #log "select finsihed", colors
+        ##log "select finsihed", colors
         # Success, we are done!
         return [colors, nodes]
       else
-        #log "spilling actual", actualSpills
+        ##log "spilling actual", actualSpills
         return actualSpill actualSpills
 
     # Coloring with current instructions failed, we need to introduce pushes and pops
