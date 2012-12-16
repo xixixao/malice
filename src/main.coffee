@@ -32,6 +32,9 @@ command.on '--help', ->
   console.log '    $ compile example.alice -t O 0'
   console.log '    $ compile example.alice -e .exe'
   console.log ''
+  console.log "  Note that the optimization level MIGHT affect the behavior of " +
+                "your program, if the optimized parts would cause a runtime error."
+  console.log ''
 
 command.parse process.argv
 

@@ -1,7 +1,10 @@
 {concat, join} = require './../metaCoffeeUtils'
 {log} = require './../utils'
 
-module.exports = (OMeta, OMLib) -> optimize: (instructions, namer) ->
+module.exports = (OMeta, OMLib) -> optimize: (instructions, namer, level) ->
+
+  shouldPerformDeadCodeElimination = ->
+    level >= 3
 
   # Machine given registers
   registers = [
@@ -255,7 +258,7 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer) ->
   # Register Allocation - Graph Coloring
   # ------------------------------------
 
-  registerColoring = (nodes, locals, graph, moves, useCount, defineCount) ->
+  registerColoring = (original, nodes, locals, graph, moves, useCount, defineCount) ->
     # a stack holding nodes for coloring
     colorables = []
 
@@ -425,7 +428,7 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer) ->
 
     actualSpill = (temps) ->
       locations = {}
-      newInstructions = for node, i in nodes
+      newInstructions = for node, i in original
         newNodes = [node]
         for fullTemp in temps
           for temp in fullTemp.split ','
@@ -498,13 +501,13 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer) ->
 
     shouldBeEliminated = (node, nodes) ->
       for [definition] in node.defines when not (definition in registers)
-        if (node.liveout.every ([used]) -> used isnt definition)
+        if (node.liveout.every ([used]) -> log used; used isnt definition)
           for use in node.using
             for x in nodes when not x.label?
               for set in ['livein', 'liveout']
                 x[set] = x[set].filter (xUse) -> xUse isnt use
           removeNode node
-          #log "Dead ", node
+          log "Dead ", node
           return node.removed = true
       false
 
@@ -527,7 +530,7 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer) ->
 
     while analyzeDeadCode nodes
       liveness nodes
-    removeDeadNodes nodes
+    return removeDeadNodes nodes
 
 
   # Perform All Phases of Dataflow Analysis
@@ -543,20 +546,20 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer) ->
 #    for x, i in nodes
 #      log i, x[0], x.using
 
-    deadCodeElimination nodes
+    nodes = deadCodeElimination nodes if shouldPerformDeadCodeElimination()
 
     #log "after dead code", nodes
 
     interferenceGraph = categorize build(nodes, precolorRegisterNodes()), moves
     #log key, val for key, val of interferenceGraph when not (key in registers)
     #log "MOVES", moves
-    return registerColoring original, locals, interferenceGraph, moves, useCount, defineCount
+    return registerColoring original, nodes, locals, interferenceGraph, moves, useCount, defineCount
 #    log "final coloring", coloring
     #log "coloring", coloring
 
   [coloring, nodes] = dataFlowAnalysis instructions, 0
   #log "coloring", coloring
-  #log "nodes", nodes
+  log "nodes", nodes
   res = allocateRegisters nodes, coloring
   #log res
   return res

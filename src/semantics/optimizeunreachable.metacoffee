@@ -16,10 +16,37 @@ module.exports = (OMeta, OMLib) -> optimize: (source, ast) ->
 
     Statements :node :pos :returns trans*:ss
       ->  reachable = []
-          for statement in ss
+          for statement in ss when not statement.empty?
             reachable.push statement
             break if statement.doesReturn()
-          append new Executes('Statements', pos, returns), reachable
+          if reachable.length > 0
+            append new Executes('Statements', pos, returns), reachable
+          else
+            makeEmptySkip()
+
+    If :node :pos :returns trans:cond trans:ifReturns trans:elseReturns
+      ->  if ifReturns.empty? and elseReturns.empty?
+            makeEmptySkip()
+          else if ifReturns.empty?
+            new Executes 'IfNot', pos, returns, cond, elseReturns
+          else if elseReturns.empty?
+            new Executes 'If', pos, returns, cond, ifReturns
+          else
+            node
+
+    Until :node :pos :returns trans:cond trans:body
+      ->  if body.empty?
+            makeEmptySkip()
+          else
+            node
+
+    Skip :node :pos :returns
+      ->  makeEmptySkip()
+
+  makeEmptySkip = ->
+    node = new Executes 'Skip', undefined, false
+    node.empty = true
+    node
 
   MaliceUnreachableCodeRemoval.match ast, "trans", undefined, (m, i) ->
     throw "ERROR while traversing AST in static optimizer"

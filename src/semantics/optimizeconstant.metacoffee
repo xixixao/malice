@@ -15,9 +15,7 @@ module.exports = (OMeta, OMLib) -> optimize: (source, ast) ->
 
   ometa MAliceConstantExpressionOptimizer extends MAliceASTWalker
 
-
     If :node :pos :returns trans:cond trans:ifReturns trans:elseReturns
-
       ->  if cond.constant? and cond.value()
             ifReturns
           else if cond.constant? and !cond.value()
