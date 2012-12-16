@@ -4,7 +4,7 @@
 #   Semantic analysis, type and error checking
 #
 
-{concat, join} = require './../metaCoffeeUtils'
+{concat, append, join} = require './../metaCoffeeUtils'
 {log} = require './../utils'
 ErrorPrinter = require './ErrorPrinter'
 {Node, Executes, Value, types} = require './nodes'
@@ -15,7 +15,7 @@ module.exports = (OMeta, OMLib) -> optimize: (source, ast) ->
 
   ometa MAliceStaticOptimizer extends MAliceASTWalker
 
-    If :node  :pos :returns trans:cond trans:ifReturns trans:elseReturns
+    If :node  :pos :returns {log @input.head()} trans:cond {log "matched cond"} trans:ifReturns  {log "matched if"} {log @input.head()} trans:elseReturns  {log "matched else"}
       ->  if cond.constant? and cond.value()
             ifReturns
           else if cond.constant? and !cond.value()
@@ -36,7 +36,10 @@ module.exports = (OMeta, OMLib) -> optimize: (source, ast) ->
           for statement in ss
             reachable.push statement
             break if statement.doesReturn()
-          concat new Executes('Statements', pos, returns), reachable
+          append new Executes('Statements', pos, returns), reachable
+
+    Skip :node :at :returns
+      -> node
 
     Logic :node :pos :type '!' ['Logic' :bp :bt '!' trans:bb]
       ->  bb
