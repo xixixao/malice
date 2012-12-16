@@ -1,0 +1,9 @@
+The looking-glass say (number y) opened
+  y said Alice.
+closed
+
+
+The looking-glass hatta () opened
+  x was a number of 5.
+  say(x).
+closed
