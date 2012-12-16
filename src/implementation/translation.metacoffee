@@ -38,9 +38,9 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
             ]]
 
     Function :node :pos :type :name :returnType [trans*:args] :scope {
+          i = 0
           for freeName, freeNode of scope.frees
-            args.push ['Argument', [newFreeName = @declare(null, freeName)], freeNode.type()]
-            scope.freeNames[freeName] = newFreeName
+            scope.freeNames[freeName] = i++
           return @declare(node, name)
     }:mangledName trans:body
       ->  callees = @callees()

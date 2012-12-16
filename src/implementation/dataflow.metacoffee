@@ -34,13 +34,8 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer) ->
 
   # Building Control Flow Graph
   # ---------------------------
-  fromPointer = (value) ->
-    if Array.isArray value then value[0] else value
-
-  fromToPointer = (value, func) ->
-    isPointer = Array.isArray value
-    newValue = func if isPointer then value[0] else value
-    if isPointer then [newValue] else newValue
+  isFree = (value) ->
+    Array.isArray value
 
   controlFlowAnalysis = (instructions) ->
     getNextInstruction = (instructions, at) ->
@@ -84,14 +79,14 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer) ->
       variable
 
     addDefines = (node, variables...) ->
-      variables.map (v) -> node.defines.push [incrementDefine(fromPointer v)]
+      variables.map (v) -> node.defines.push [incrementDefine(v)] unless isFree v
 
     addUsing = (node, variables...) ->
-      variables.map (v) -> node.using.push [incrementUse(fromPointer(v)), node]
+      variables.map (v) -> node.using.push [incrementUse(v), node] unless isFree v
 
     addLiveOut = (node, variables...) ->
       addDefines node, variables...
-      variables.map (v) -> node.liveout.push [fromPointer v]
+      variables.map (v) -> node.liveout.push [v]
 
     # Fill information about instructions using firstAfter
     moves = []
@@ -129,15 +124,12 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer) ->
       Pop :node :name
         ->  addDefines node, name
       Assignment :node :into :from assignment(node, into, from)
-        ->  if not (Array.isArray into and Array.isArray from)
-              moves.push [fromPointer(into), fromPointer(from), node]
+        ->  if not (isFree into or isFree from)
+              moves.push [into, from, node]
       assignment :node :into :from
-        ->  if Array.isArray into
-              addUsing into
-            else
-              addDefines node, into
+        ->  addDefines node, into
             addUsing node, from
-            if Array.isArray into and Array.isArray from
+            if isFree into and isFree from
               addUsing node, "$ax"
               addDefines node, "$ax"
       ValAssignment :node :into :value :type
@@ -176,6 +168,8 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer) ->
 
     MAliceControlFlowAnalysis.matchAll instructions, "list", undefined, (m, i) ->
       throw "ERROR while traversing three address code in control-flow optimizer"
+
+    #log ([x, x.defines, x.using] for x in instructions)
 
     createBackLinks = (instructions) ->
       for x in instructions when not x.label?
@@ -241,7 +235,6 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer) ->
 
   build = (nodes, precolored) ->
     graph = {}
-    #log "finding interference for", concat precolored, nodes
     for x in concat precolored, nodes when not x.label?
       for [v] in x.liveout
         graph[v] = union (graph[v] ? []), x.liveout.map ([v2]) -> v2
@@ -462,7 +455,7 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer) ->
       when 'ImmAssignment' then [1, 3, 4] #[..., into, op, e1, e2?]
       else [1]
     range.map (i) ->
-      node[i] = fromToPointer node[i], func if node[i]?
+      node[i] = func node[i] if node[i]? and not isFree node[i]
 
   # Register Allocation - Update Data-flow Graph
   # --------------------------------------------
@@ -498,9 +491,8 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer) ->
   deadCodeElimination = (nodes) ->
 
     shouldBeEliminated = (node, nodes) ->
-      for defined in node.defines when not (fromPointer(defined) in registers)
-        defined = fromPointer defined
-        if (node.liveout.every ([used]) -> used isnt defined)
+      for [definition] in node.defines when not (definition in registers)
+        if (node.liveout.every ([used]) -> used isnt definition)
           for use in node.using
             for x in nodes when not x.label?
               for set in ['livein', 'liveout']
