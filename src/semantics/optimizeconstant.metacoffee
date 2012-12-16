@@ -13,15 +13,10 @@ module.exports = (OMeta, OMLib) -> optimize: (source, ast) ->
 
   MAliceASTWalker = require('./walker')(OMeta, OMLib)
 
-  ometa MAliceStaticOptimizer extends MAliceASTWalker
+  ometa MAliceConstantExpressionOptimizer extends MAliceASTWalker
 
-    If :node  :pos :returns trans:cond trans:ifReturns trans:elseReturns
-      ->  if cond.constant? and cond.value()
-            ifReturns
-          else if cond.constant? and !cond.value()
-            elseReturns
-          else
-            new Executes 'If', pos, returns, cond, ifReturns, elseReturns
+    If :node :pos :returns trans:cond trans:ifReturns trans:elseReturns
+      ->  "hey"
 
     Until :node :pos :returns trans:cond trans:body
       ->  if cond.constant? and cond.value() or body.empty?
@@ -31,21 +26,13 @@ module.exports = (OMeta, OMLib) -> optimize: (source, ast) ->
           else
             new Executes 'Until', pos, returns, cond, body
 
-    Statements :node :pos :returns trans*:ss
-      ->  reachable = []
-          for statement in ss
-            reachable.push statement
-            break if statement.doesReturn()
-          concat new Executes('Statements', pos, returns), reachable
-
     Logic :node :pos :type '!' ['Logic' :bp :bt '!' trans:bb]
       ->  bb
     Logic :node :pos :type :op trans:b1 trans?:b2
       ->  @tryToEvaluate node, pos, op, types.boolean, b1, b2
 
     Compare :node :pos :type :op trans:e1 trans:e2
-      ->  res = @tryToEvaluate node, pos, op, types.boolean, e1, e2
-          return res
+      ->  @tryToEvaluate node, pos, op, types.boolean, e1, e2
 
     Arithmetic :node :pos :type :op trans:e1 trans?:e2
       ->  @tryToEvaluate node, pos, op, e1.type(), e1, e2
@@ -68,7 +55,7 @@ module.exports = (OMeta, OMLib) -> optimize: (source, ast) ->
     Sentence :node :pos :type :string
       ->  node
 
-  MAliceStaticOptimizer::tryToEvaluate = (node, pos, op, type, e1, e2) ->
+  MAliceConstantExpressionOptimizer::tryToEvaluate = (node, pos, op, type, e1, e2) ->
     if e1.constant and (!e2? or e2.constant) and (value = evaluate pos, op, e1, e2)?
       new Result ['Value', pos, type], value
     else
@@ -97,5 +84,5 @@ module.exports = (OMeta, OMLib) -> optimize: (source, ast) ->
           eval "#{op}#{v1.toString()}"
 
   errorPrinter = new ErrorPrinter source
-  MAliceStaticOptimizer.match ast, "trans", undefined, (m, i) ->
+  MAliceConstantExpressionOptimizer.match ast, "trans", undefined, (m, i) ->
     throw "ERROR while traversing AST in static optimizer"

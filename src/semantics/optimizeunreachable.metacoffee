@@ -1,0 +1,25 @@
+#
+# optimizeunreachable.metacoffee
+#
+#   Removes code following a return statement or block which must return.
+#
+
+{concat, join} = require './../metaCoffeeUtils'
+{log} = require './../utils'
+{Executes} = require './nodes'
+
+module.exports = (OMeta, OMLib) -> optimize: (source, ast) ->
+
+  MAliceASTWalker = require('./walker')(OMeta, OMLib)
+
+  ometa MaliceUnreachableCodeRemoval extends MAliceASTWalker
+
+    Statements :node :pos :returns trans*:ss
+      ->  reachable = []
+          for statement in ss
+            reachable.push statement
+            break if statement.doesReturn()
+          concat new Executes('Statements', pos, returns), reachable
+
+  MaliceUnreachableCodeRemoval.match ast, "trans", undefined, (m, i) ->
+    throw "ERROR while traversing AST in static optimizer"

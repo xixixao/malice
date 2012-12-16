@@ -9,9 +9,11 @@ module.exports = (OMeta, OMLib) ->
     recurse   :node = (trans | anything)*:ans             -> node[1..] = ans
                                                              return node
     trans     :node = transNode(node, node)
-    transNode :node = [:t ( &{@[t]} prepend([node]) apply(t)
+    transNode :node = [:t {console.log t + @[t]} ( &{@[t]} prepend([node]) apply(t)
                           | &{t in @nodes} recurse(node)
                           ):ans]                          -> ans
+
+    Skip :node -> node
 
   MAliceASTWalker::nodes = [
     "Program"
