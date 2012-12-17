@@ -1,3 +1,8 @@
+The looking-glass printElement (spider number arr, number index)
+opened
+  5 spoke.
+closed
+
 The looking-glass hatta ()
 opened
   arrLen was a number of 10.
@@ -6,7 +11,6 @@ opened
   The looking-glass initialise ()
   opened
     i was a number and i became 0.
-    i spoke.
     eventually (i == arrLen) because
      arr's i piece became 3.
      i ate.
@@ -16,8 +20,11 @@ opened
   initialise().
   "Choose an element to print in the range 0.." spoke, arrLen - 1 spoke.
   opened
-    baba had 5 number.
-    baba's 0 piece became 3.
-    baba's 0 piece spoke.
+    elem was a number of 5.
+    opened
+      baba had 5 number.
+      baba's 0 piece became 3.
+      baba's 0 piece spoke.
+    closed
   closed
 closed

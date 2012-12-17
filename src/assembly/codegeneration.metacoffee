@@ -45,7 +45,7 @@ module.exports = (OMeta, OMLib) -> generateCode: (threeCode) ->
 
   sizeof = (type) ->
     if type.equals types.number
-      4
+      8
     else if type.equals types.letter
       1
 

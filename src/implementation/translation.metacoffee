@@ -273,8 +273,8 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
     freePops = []
     for freeName, freeNode of scope.frees
       [mangledName, _] = @currentScope.getNameOf freeNode.name()
-      freePushes.unshift ['Param', freeNode.name()]
-      freePops.push ['ParamPop', freeNode.name()]
+      freePushes.unshift ['Param', mangledName]
+      freePops.push ['ParamPop', mangledName]
     [freePushes, freePops]
 
   addressCode = MAliceTranslator.match ast, "trans", undefined, (m, i) ->

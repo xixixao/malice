@@ -2,10 +2,10 @@
 #define UTILS_H
 
 // dynamically allocate space to read a string from standard in
-char *read();
+void *read();
 
 // dynamically allocate an array of given size
-void *alloc_c(int size);
-void *alloc_i(int size);
+void *alloc_c(size_t size);
+void *alloc_i(size_t size);
 
 #endif
