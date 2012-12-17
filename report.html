@@ -1,14 +1,14 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
 <head>
-<title>ometa.md</title>
+<title>MAlice Compiler - Report</title>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 <style type="text/css">
 body {
-  font-size: 14px;
-  line-height: 21px;
+  font-size: 19px;
+  line-height: 24px;
   color: #333;
-  background: #f6f6f6 url(../images/background.png);
+  background: #f6f6f6;
   font-family: "Helvetica Neue", "Lucida Grande", "Lucida Sans Unicode", Helvetica, Arial, sans-serif !important;
   width: 950px;
   padding: 0px 50px 50px 50px;
@@ -19,18 +19,27 @@ body {
   padding: 80px 0px 50px 50px;
 }
 p, li {
-  width: 625px;
+  width: 900px;
 }
 a {
   color: #191933;
 }
 h1, h2, h3, h4, h5, h6, b.header {
-  font-size: 18px;
+  font-size: 24px;
   color: #000;
-  margin-top: 40px;
+  margin-top: 30px;
   margin-bottom: 15px;
   text-shadow: #fff 0 1px 1px;
 }
+
+h2 {
+  font-size: 22px;
+}
+
+h3 {
+  font-size: 20px;
+}
+
 br.clear {
   height: 0;
   clear: both;
@@ -46,7 +55,7 @@ li {
 }
 table {
   margin: 16px 0 0 13px; padding: 0;
-  width: 625px;
+  width: 900px;
 }
   tr, td {
     margin: 0; padding: 0;
@@ -410,7 +419,7 @@ div.code {
 
 <h1>MAlice Language Compiler - Report</h1>
 
-<p>Michal Srb, Harry Lachenmayer</p>
+<p>Michal Srb, Harry Lachenmayer | December, 2012</p>
 
 <h2>Introduction</h2>
 
@@ -496,7 +505,7 @@ extensions to the basic specification. We shall start with the two decisions eve
 
 <p>We have followed the algorithm (but not its implementation) given by Appel in Chapter 11. The diagram below describes where is each phase of the algorithm situated in its execution. Appel actually doesn't follow this structure, but uses a set of work-lists to loop through these phases. We have used much more functional style instead of having a lot of state scattered around different sets of nodes. We keep the needed information in the nodes or check for their occurrence inside an actual list (for example, we check if a variable is a register simply by calling a function on its name, whereas Appel would move it from one set to another when it becomes / stops being a register). Our implementation would not be much less efficient if used sets and more complex objects, and is much easier to follow through a chain of tail calls - our implementation matches exactly the diagram:</p>
 
-<img src="registerallocation.png" width="625">
+<img src="registerallocation.png" width="750">
 
 <p>We won't be able to describe the algorithm in full detail, instead we will briefly introduce the additions over the algorithm given in lectures.</p>
 
