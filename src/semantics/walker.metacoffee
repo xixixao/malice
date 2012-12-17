@@ -10,6 +10,7 @@ module.exports = (OMeta, OMLib) ->
                                                              return node
     trans     :node = transNode(node, node)
     transNode :node = [:t ( &{@[t]} prepend([node]) apply(t)
+                          | &{@[t]} {throw "Failed to match #{t}"}
                           | &{t in @nodes} recurse(node)
                           ):ans]                          -> ans
 
@@ -36,6 +37,7 @@ module.exports = (OMeta, OMLib) ->
     "Compare"
     "Arithmetic"
     "Unary"
+    "Dereference"
   ]
 
   return MAliceASTWalker

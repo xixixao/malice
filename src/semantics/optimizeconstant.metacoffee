@@ -67,6 +67,8 @@ module.exports = (OMeta, OMLib) -> optimize: (source, ast) ->
     if e1.constant and (!e2? or e2.constant) and (value = evaluate pos, op, e1, e2)?
       new Result ['Value', pos, type], value
     else
+      node[4] = e1
+      node[5] = e2 if e2?
       node
 
   class Result extends Value
