@@ -527,8 +527,11 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer, level) ->
               node.useless = true
               node.push true
               return true
-          else
+          when 'Argument', 'Array'
             return true if shouldBeEliminated node, nodes
+          else
+            if shouldPerformDeadCodeElimination()
+              return true if shouldBeEliminated node, nodes
       return false
 
     removeDeadNodes = (nodes) ->
@@ -552,7 +555,7 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer, level) ->
 #    for x, i in nodes
 #      log i, x[0], x.using
 
-    nodes = deadCodeElimination nodes if shouldPerformDeadCodeElimination()
+    nodes = deadCodeElimination nodes
 
     #log "after dead code", nodes
 
