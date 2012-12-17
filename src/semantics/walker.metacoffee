@@ -38,6 +38,7 @@ module.exports = (OMeta, OMLib) ->
     "Arithmetic"
     "Unary"
     "Dereference"
+    "Element"
   ]
 
   return MAliceASTWalker
