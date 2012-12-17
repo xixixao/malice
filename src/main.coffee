@@ -57,7 +57,7 @@ metacoffee (parser,
     try
       sourceCode = fs.readFileSync file, 'utf8'
     catch e
-      console.error "File '#{file}' couldn't be loaded!"
+      console.error "File '#{clc.redBright file}' couldn't be loaded!"
 
     # Parse file
     if sourceCode?
