@@ -1,0 +1,10 @@
+The looking-glass hatta ()
+opened
+arrLen was a number of 6.
+arr had arrLen number.
+i was a number and i became 0.
+    eventually (i == arrLen) because
+       arr's i piece became i * 2 + (~(10/3) - (((i + 500)))).
+          i ate.
+ enough times
+ closed
