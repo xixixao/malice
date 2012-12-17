@@ -1,3 +1,5 @@
+log = console.log
+
 class ObjectifiedArray
   constructor: ->
     node =  Array.apply (new Array), arguments
@@ -51,7 +53,7 @@ class Type extends Node
     node.equalsAny = Type::equalsAny
     return node
   equals: (t) ->
-    @label() is t.label() or t.isError
+    @label() is t.label() or t.isError?
   equalsAny: (ts) ->
     ts.some (t) ->
       @equals t
@@ -81,7 +83,7 @@ class ArrayType extends Type
     node.toString = -> "spider #{@itemType()}"
     return node
   equals: (t) ->
-    t.isError or t.isArray and @itemType().equals t.itemType()
+    t.isError? or t.isArray? and @itemType().equals t.itemType()
 
 class ErrorType extends Type
   constructor: ->
