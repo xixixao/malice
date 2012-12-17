@@ -1,0 +1,11 @@
+arrSize was a number of 6.
+
+The looking-glass hatta () opened
+	arr had arrSize number.
+ i was a number of 0.
+  eventually (i == arrSize) because
+     arr's i piece became i + (i-1)/2.
+        "Setting arr's " spoke and i spoke and " piece to " spoke then arr's i piece spoke and "\n" said Alice.
+           i ate.
+  enough times
+ closed
