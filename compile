@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-make 1>&2 && node bin/main $*
+node bin/main $*
