@@ -43,7 +43,7 @@ require('./colorConsole')(command.color)
 
 # Compile files
 metacoffee = require './loadMetaCoffee'
-optimizeWith = require './implementation/optimization'
+optimizeWith = require './translation/optimization'
 metacoffee (parser,
             semantics, constantEvalution, unreachableRemoval,
             translation, dataFlowAnalysis,

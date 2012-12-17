@@ -4,8 +4,8 @@ parser       = require './parse/parser'
 semantics    = require './semantics/semantics'
 constants    = require './semantics/optimizeconstant'
 unreachable  = require './semantics/optimizeunreachable'
-translate    = require './implementation/translation'
-dataflow     = require './implementation/dataflow'
+translate    = require './translation/translation'
+dataflow     = require './translation/dataflow'
 codegen      = require './assembly/codegeneration'
 
 module.exports = (callback) ->
