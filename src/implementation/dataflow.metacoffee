@@ -420,32 +420,37 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer, level) ->
         return actualSpill actualSpills
 
     # Coloring with current instructions failed, we need to introduce pushes and pops
-    replaceOccurence = (locations, node, temp) ->
-      unless locations[temp]
-        locations[temp] = locals++
+    replaceOccurence = (node, temp) ->
       newTemp = namer.newTemporary temp
       mapOverNode node, (t) -> if t is temp then newTemp else t
       newTemp
 
     actualSpill = (temps) ->
-      locations = {}
-      newInstructions = for node, i in original
+      locals = {}
+      localsCount = 0
+      newInstructions = for node in original
         newNodes = [node]
         for fullTemp in temps
           for temp in fullTemp.split ','
             if node.defines?
               for [x] in node.defines when temp is x
-                  newTemp = replaceOccurence locations, node, temp
-                  #log "changed", node
-                  newNodes.push ['Push', newTemp]
+                  unless locals[temp]?
+                    locals[temp] = localsCount++
+                  newTemp = replaceOccurence node, temp
+                  if node.isPush?
+                    newNodes.push ['Push', newTemp]
+                  else
+                    newNodes.push ['Assignment', [locals[temp]], newTemp]
             if node.using?
               for [x] in node.using when temp is x
-                  #log "uses", x, node.using, useCount[temp], i, nodes.length
-                  newTemp =  replaceOccurence locations, node, temp
-                  newNodes.unshift ['Pop', newTemp]
-                  break
+                  unless locals[temp]?
+                    locals[temp] = localsCount++
+                  newTemp =  replaceOccurence node, temp
+                  if node.isPop?
+                    newNodes.unshift ['Pop', newTemp]
+                  else
+                    newNodes.unshift ['Assignment', newTemp, [locals[temp]]]
         newNodes
-      #log "calling dataFlowAnalysis again", concat(newInstructions...)
       return dataFlowAnalysis concat(newInstructions...), locals
 
 

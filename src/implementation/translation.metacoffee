@@ -257,11 +257,16 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
 
   MAliceTranslator::pushCallees = (callees) ->
     for [temp, reg] in callees
-      ['Assignment', temp, reg]
+      node = ['Assignment', temp, reg]
+      node.isPush = true
+      node
 
   MAliceTranslator::popCallees = (callees) ->
     (for [temp, reg] in callees
-      ['Assignment', reg, temp]).reverse()
+      node = ['Assignment', reg, temp]
+      node.isPop = true
+      node
+    ).reverse()
 
   MAliceTranslator::passFreeVariables = (scope) ->
     freePushes = []
