@@ -61,9 +61,6 @@ module.exports = (OMeta, OMLib) -> generateCode: (threeCode) ->
           '\tmov rbp, rsp']
     End :name
       -> args = []
-         #for argument in @liftedArguments.reverse()
-           #args.unshift "\tmov [rbp+#{16+8*--@argumentCount}], #{@accessVariable argument}"
-         @liftedArguments = []
          concat args, ['\tleave',
                        '\tret']
     Array :name :type :size
@@ -85,11 +82,8 @@ module.exports = (OMeta, OMLib) -> generateCode: (threeCode) ->
       -> ["\tpush #{@accessVariable name}"]
     ParamPop :name anything?:useless
       -> ["\tpop #{@accessVariable name}"]
-    Argument :name :type
-      -> if Array.isArray name
-           [name] = name
-           @liftedArguments.push name
-         ["\tmov #{@accessVariable name}, [rbp+#{16+8*@argumentCount++}]"]
+    Argument :name :type :count
+      -> ["\tmov #{@accessVariable name}, [rbp+#{16+8*count++}]"]
     Push :name
       ->  ["\tpush #{@accessVariable name}"]
     Pop :name
@@ -158,7 +152,6 @@ module.exports = (OMeta, OMLib) -> generateCode: (threeCode) ->
       -> @registerCounter = 0
          @variables = {}
          @data = []
-         @liftedArguments = []
          @argumentCount = 0
 
   MAliceCodeGeneration::accessVariable = (variable) ->

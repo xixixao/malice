@@ -37,7 +37,7 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
               ['End', 'main']
             ]]
 
-    Function :node :pos :type :name :returnType [trans*:args] :scope {
+    Function :node :pos :type :name :returnType {@argCount = 0} [trans*:args] :scope {
           i = args.length
           for freeName, freeNode of scope.frees
             scope.freeNames[freeName] = i++
@@ -55,7 +55,7 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
           decl
 
     Argument :node :pos :type :name
-      ->  ['Argument', @declare(node, name), type]
+      ->  ['Argument', @declare(node, name), type, @argCount++]
 
     Block :node :pos :returns :scope enterScope(scope) trans:declarations trans:statements exitScope
       ->  concat declarations, statements

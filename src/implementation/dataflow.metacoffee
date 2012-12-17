@@ -110,9 +110,10 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer, level) ->
             addUsing node, condition
       Jump :node :to
         ->  node.next = [firstAfter[to]]
-      Argument :node :name :type declaration(node, name)
+      Argument :node :name :type :count declaration(node, name)
       Array :node :name :type :size declaration(node, name)
-        ->  addUsing node, size, cReturnRegister
+        ->  addUsing node, size
+            addLiveOut node, cCallerSaveRegisters...
       declaration :node :name
         ->  addDefines node, name
       ArrayAccess :node :into :array :index :type assignment(node, into, array)
