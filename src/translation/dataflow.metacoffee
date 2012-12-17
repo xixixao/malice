@@ -272,9 +272,6 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer, level) ->
 
     # Removes all occurences of temp from the interference graph
     remove = (temp) ->
-      #interferes = graph[temp]
-      #for x in interferes
-      #  graph[x] = graph[x]?.filter (t) -> t isnt temp
       delete graph[temp]
 
     # Takes out a non-precolored, non-move-related node and pushes it onto colorables

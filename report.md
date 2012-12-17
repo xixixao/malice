@@ -63,11 +63,13 @@ We have therefore gone with a solution combining the two traditional approaches.
 
 Our parser successfully parses all MALice language features. The only difficulties we encountered were related to the fact that the reference compiler uses traditional lexer, which results in some unexpected constrains ('a' is not a valid variable name), which we had to force onto a much better (in our opinion) top-down parser. In a future this could be easily remedied by removing the keyword constraint from our *token* rule. This is also where using MetaCoffee meant the most sense and we would happily choose this path again.
 
-Our semantic analyzer again performs as expected, providing nicely formatted error and warning messages. Going from implementing front-end to implementing the back-end of our compiler, we only had to add return values, the amended AST nodes, to our semantic actions. This was a good sign for our design. We designed our type checking to minimize code repetition, and therefore adding new types and language constructs would be trivial. We could have abstracted more our type system, by providing general sorts of types instead of the built-in numbers, letters etc., but as we didn't plan on extending the compiler in this way, this wasn't our priority.
+Our semantic analyzer again performs as expected, providing nicely formatted error and warning messages. Going from implementing frontend to implementing the backend of our compiler, we only had to add return values, the amended AST nodes, to our semantic actions. This was a good sign for our design. We designed our type checking to minimize code repetition, and therefore adding new types and language constructs would be trivial. We could have abstracted more our type system, by providing general sorts of types instead of the built-in numbers, letters etc., but as we didn't plan on extending the compiler in this way, this wasn't our priority.
 
 We have gone well over the requirements in terms of optimization and this turned out to be a major pitfall. The main problem was that we didn't have a separate way of generating code when our complex register allocation wasn't working, and so to identify an error, we had to search across all of our modules. We did better with static optimizations (before translation), were we can easily switch them on and off with command parameters. This seems partially inherent, but we could have done a better job in making parts of the algorithm optional and had we had more time, we would have come up with dummy versions of each part (for example a naive graph coloring).
 
-Overall, time management was our biggest issue, as following our original goals we produced the front-end to our compiler very quickly (also thanks to our parser generator tool), but taking on a complex register allocation algorithm resulted in much greater time needed to write the back-end. We would have really liked to have been able to follow are original goal, leaving low-level optimizations to LLVM and focusing possibly on extending the MAlice language and runtime (as this seems to us more applicable to real-life situations).
+Overall, time management was our biggest issue, as following our original goals we produced the frontend to our compiler very quickly (also thanks to our parser generator tool), but taking on a complex register allocation algorithm resulted in much greater time needed to write the backend. We would have really liked to have been able to follow are original goal, leaving low-level optimizations to LLVM and focusing possibly on extending the MAlice language and runtime (as this seems to us more applicable to real-life situations).
+
+We have relied on our and the provided examples for testing our implementation, but a more refined approach with automatic running of tests after making a change to the compiler would be more desirable. We have employed typical team-work methods, splitting the work between team members, which was easy to do with our clear separation of the implementation, and engaging in peer-coding.
 
 ### Performance
 
@@ -79,30 +81,27 @@ Here we are going to describe our extension to the basic specification of the co
 
 ### Register allocation
 
+We have followed the algorithm (but not its implementation) given by Appel in Chapter 11. The diagram below describes where is each phase of the algorithm situated in its execution. Appel actually doesn't follow this structure, but uses a set of work-lists to loop through these phases. We have used much more functional style instead of having a lot of state scattered around different sets of nodes. We keep the needed information in the nodes or check for their occurrence inside an actual list (for example, we check if a variable is a register simply by calling a function on its name, whereas Appel would move it from one set to another when it becomes / stops being a register). Our implementation would not be much less efficient if used sets and more complex objects, and is much easier to follow through a chain of tail calls - our implementation matches exactly the diagram:
+
+We won't be able to describe the algorithm in full detail, instead we will briefly introduce the additions over the algorithm given in lectures.
+
+The **Dataflow Analysis** starts by constructing a control-flow graph, with information about uses and definition. The control-flow graph is doubly-linked graph for easier node removal. We also create a list of *moves*, to later employ coalescing. Than we perform the typical liveness analysis and create an interference graph for the variables. We made sure in our translation module that all names are unique. This is the **build** phase. We follow by calling **simplify**, which tries to find a node, such that when we remove it, the resulting graph is colorable. If fail, we call **coalesce** noting that simplification is not possible. We employ two different heuristics for removing move instructions, depending on if they include a register or not (referenced to Briggs and George in Appel). If **coalesce** succeeds, it calls simplify again, otherwise we need to **freeze** a node, turning it from a move-related to non-move related, to be considered for simplification. When we run out of simplifyable nodes, we mark a node as potential **spill**. We use an actual value-giving heuristic, which is more advanced than just choosing a node to spill at random. At the beginning, these will be the precolored nodes standing in for callee-save machine registers. This way, we only push and pop registers which we actually need.
+
+Once we empty the graph, we call **select** and try to color all the removed and spilled nodes. If we fail, **actual spill**s occur. We have to replace their occurrences in the control-flow graph with store and fetch instructions and repeat the whole process with this new graph, which in most cases is the last time we need to repeat it.
+
+
 ### Dead-code elimination
+
 After performing the initial build phase of register allocation including liveness analysis, we check for nodes in the control-flow graph which define values not used afterwards. These are *dead* and we can mark them for removal. We could just remove them and repeat the whole build process, but we went with a more efficient solution. We had to improve the control-flow analysis by not only marking each used variable, but also where the use is actually located in the graph. This way, we are able to remove the occurrences of the now *dead* uses from the graph and repeat only the liveness analysis (as described in lectures). We do this until there are no more removable nodes.
 
+In combination with our unreachable-code removal optimization, we can turn programs such as valid/test05 from 65 lines of assembly into an empty function.
 
+### Future improvements
 
+We covered pretty much all of the register allocation as given by Appel, but we could include more data-flow analyses, especially *reaching definitions* and *constant propagation* to improve on our naive AST-based optimizations. By the **full employment theorem for compiler writers**, there is a very long list of optimizations we could add to our compiler. 
 
+Since we used CoffeeScript for our compiler, we could easily turn it into a web-based solution, or even replace the backend with a JavaScript generator, creating MAliceCript.
 
+In terms of language extensions, one of the easiest and most promising would be a foreign-function interface to C, as we are already calling C functions in our assembly. We would definitely like to write:
 
-
-
-
-
-We had initially considered using LLVM as output platform,
-but as we could not rely on any of the optimizations that LLVM provides, we
-decided that outputting Intel assembly would be a better choice. In addition,
-we had previous experience writing Intel assembly code from our first year
-Architecture and C courses.
-
-The code generation stage is contained in the src/codegeneration.metacoffee
-file. It performs pattern matching on the 3-address code structure generated
-by the translation and register allocation stages. Every node in the input
-structure is translated into a series of assembly instructions.
-
-# Setbacks and pitfalls
-not the best debugging from MetaCoffee
-
-Because CoffeeScript is an imperative language, even in respect to defining functions, it is usually much easier to put top level code at the bottom of a source file. This is undesirable, as we much prefer top-down code which actually read top down. Working around this requires good care and in some instances it might complicate the code too much to keep the flow in reverse order.
+    Alice went down the stdio rabbit hole.
