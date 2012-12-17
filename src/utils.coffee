@@ -1,6 +1,8 @@
 dumper     = require '../lib/jsDump'
 clc        = require 'cli-color'
 
+# Provide a better, colorful "log"
+
 colorize = (js) ->
   js = js.replace /(\[\w+? ?\w+?\])/g, clc.red '$1' # <[Function]> or <[object]> etc.
   js = js.replace /'((\\'|.)*?)'/g, clc.green '$1' # <'some text'>

@@ -1,5 +1,8 @@
 clc = require('cli-color');
 
+# Formats syntactic and semantic errors, given the original source and
+# error locations.
+
 formatOmetaError =  (label, interpreter, position, message) ->
   format 
     label: label

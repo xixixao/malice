@@ -85,7 +85,7 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
       -> []
 
     Assignment :node :pos :returns ['Element' :elempos
-                          :type trans:array trans:index] trans:value
+                                   :type trans:array trans:index] trans:value
       ->  [indexbody, indexresult] = @source index
           [arraybody, arrayresult] = @source array
           [body, result] = @source value

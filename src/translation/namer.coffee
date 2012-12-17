@@ -1,3 +1,5 @@
+# Unique name generator
+
 module.exports = class Namer
   constructor: ->
     @_names = {}

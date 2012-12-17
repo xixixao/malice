@@ -1,6 +1,8 @@
 clcTrim    = require 'cli-color/lib/trim'
 tty        = require 'tty'
 
+# Removes coloring when the output is redirected
+
 module.exports = (alwaysColor) ->
   unless alwaysColor
     builtinError = console.error

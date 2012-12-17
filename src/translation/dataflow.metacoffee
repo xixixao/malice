@@ -1,6 +1,8 @@
 {concat, join} = require './../metaCoffeeUtils'
 {log} = require './../utils'
 
+# Performs data-flow analysis and register allocation
+
 module.exports = (OMeta, OMLib) -> optimize: (instructions, namer, level) ->
 
   shouldPerformDeadCodeElimination = ->
@@ -173,7 +175,6 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer, level) ->
     MAliceControlFlowAnalysis.matchAll instructions, "list", undefined, (m, i) ->
       throw "ERROR while traversing three address code in control-flow optimizer"
 
-    #log ([x, x.defines, x.using] for x in instructions)
 
     createBackLinks = (instructions) ->
       for x in instructions when not x.label?
@@ -266,7 +267,7 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer, level) ->
 
     limit = registers.length
 
-    isRegister = (temp) ->
+    includesRegister = (temp) ->
       temp.split(',').some (t) -> t in registers
 
     # Removes all occurences of temp from the interference graph
@@ -278,15 +279,11 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer, level) ->
 
     # Takes out a non-precolored, non-move-related node and pushes it onto colorables
     simplify = (canCoalesce = yes) ->
-      ##log "simplify starts", graph
-      ##log "simplify", ([temp, graph[temp].move] for temp of graph)
       for temp, interferes of graph when not (interferes.move? or temp in registers)
         currentlyInterfere = interferes.filter (t) ->
           t isnt temp and graph[t]?
-        ##log "trying to simlify", temp, currentlyInterfere.length
         if currentlyInterfere.length < limit
           colorables.push [temp, interferes]
-          ##log "simplify-remove", temp
           remove temp, graph
           return coalesce()
       if canCoalesce
@@ -297,7 +294,6 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer, level) ->
 
     # Takes out some move which doesn't make the graph less colorable
     coalesce = (canSimplify = yes) ->
-      ##log "coalesce starts"
       for [a, b, node], i in moves when graph[a]? and graph[b]?
         if (a in graph[b]) or (a in registers and b in registers)
           for mi in [moves.length - 1..0] by -1
@@ -306,20 +302,17 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer, level) ->
               moves.splice mi, 1
             categorize graph, moves
           return simplify()
-        else if not (isRegister(a) or isRegister(b))
-          #log "nottregs", a, b
+        else if not (includesRegister(a) or includesRegister(b))
           significant = union(graph[a], graph[b]).filter (t) ->
             graph[t]? and not (t in [a, b]) and graph[t].length >= limit
           coalescable = significant.length < limit
         else
-          ##log "trying to coalesce", a, b
           [r, notR] = if a in registers then [a, b] else [b, a]
           coalescable = graph[notR].every (t) ->
             !graph[t]? or t is notR or t in registers or graph[t].length < limit or r in graph[t]
         if coalescable
           # Create new coalesced temporary
           newTemp = a + "," + b
-          ##log "coalescing", newTemp
           oldNames = [a, b]
           # Replace old temporaries with the new joined one
           for temp, interferes of graph
@@ -354,7 +347,6 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer, level) ->
         # Cannot coalesce, but maybe can simplify
         return simplify no
       else
-        #log "Freezing from coalescing"
         return freeze()
 
     # Both coalescing and simplifying failed, we won't be able to coalesce some move
@@ -378,14 +370,10 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer, level) ->
       spills.sort ([aName, aInters], [bName, bInters]) ->
         ((useCount[aName] ? 0) + (defineCount[aName] ? 0)) / aInters.length -
         ((useCount[bName] ? 0) + (defineCount[bName] ? 0)) / bInters.length
-      #log ([temp, useCount[temp], defineCount[temp], interferes.length] for [temp, interferes] in spills)
-      #log spills
       for [temp, interferes] in spills
         colorables.push [temp, interferes]
-        ##log "spilling", temp, interferes
         remove temp, graph
         return simplify()
-      #log "no spills available"
       return select()
 
     # We emptied the graph, let's rebuild and hope for the best!
@@ -400,24 +388,18 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer, level) ->
           colors[temp] = t
           break
         if not colors[temp]?
-          ##log temp
           for color in registers
             if (interferes.every (x) -> colors[x] isnt color)
-              ##log "chosen", color
               colors[temp] = color
               break
         # Our hopes vanished, there was no available color for this temporary
         if not colors[temp]?
-          #log "actual spill", temp
           actualSpills.push temp
         else
-          #log "color chocesn", temp, colors[temp]
       if actualSpills.length is 0
-        ##log "select finsihed", colors
         # Success, we are done!
         return [colors, nodes]
       else
-        ##log "spilling actual", actualSpills
         return actualSpill actualSpills
 
     # Coloring with current instructions failed, we need to introduce pushes and pops
@@ -454,13 +436,10 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer, level) ->
         newNodes
       return dataFlowAnalysis concat(newInstructions...), locals
 
-
     # Execute register coloring algorithm
-
-    #log "starting register selection", ([key, val] for key, val of graph when not (key in registers))
-
     return simplify()
 
+  # Maps function onto variable names inside the given node
   mapOverNode = (node, func) ->
     [code, _] = node
     range = switch code
@@ -477,13 +456,10 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer, level) ->
   # --------------------------------------------
 
   allocateRegisters = (nodes, coloring) ->
-
-
     # Split back coalesced temporaries
     for temp, register of coloring
       for t in temp.split ','
         coloring[t] = register
-
     # Allocate registers
     for address in [nodes.length - 1..0] by -1
       [code, operands...] = node = nodes[address]
@@ -493,13 +469,6 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer, level) ->
         [_, to, from] = node
         if to == from
           nodes.splice address, 1
-
-        #when 'Return'
-        #  replaceNames node, 1
-        #  [_, from] = node
-        #  if from == returnRegister
-        #    nodes.splice address, 1
-
     return nodes
 
   # Dead-code Elimination
@@ -514,7 +483,6 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer, level) ->
               for set in ['livein', 'liveout']
                 x[set] = x[set].filter (xUse) -> xUse isnt use
           removeNode node
-          #log "Dead ", node
           return node.removed = true
       false
 
@@ -546,30 +514,14 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer, level) ->
   # Perform All Phases of Dataflow Analysis
   # ---------------------------------------
 
-
   dataFlowAnalysis = (nodes, locals) ->
     [nodes, moves, useCount, defineCount] = controlFlowAnalysis nodes
-
     original = nodes[..]
-
     liveness nodes
-#    for x, i in nodes
-#      log i, x[0], x.using
-
     nodes = deadCodeElimination nodes
-
-    #log "after dead code", nodes
-
     interferenceGraph = categorize build(nodes, precolorRegisterNodes()), moves
-    #log key, val for key, val of interferenceGraph when not (key in registers)
-    #log "MOVES", moves
     return registerColoring original, nodes, locals, interferenceGraph, moves, useCount, defineCount
-#    log "final coloring", coloring
-    #log "coloring", coloring
 
   [coloring, nodes] = dataFlowAnalysis instructions, 0
-  #log "coloring", coloring
-  #log "nodes", nodes
   res = allocateRegisters nodes, coloring
-  #log res
   return res
