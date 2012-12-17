@@ -7,9 +7,6 @@ command    = require 'commander'
 clc        = require 'cli-color'
 {log}      = require './utils'
 
-# Remove colors when not outputting to CLI
-require './colorConsole'
-
 # Command options
 command._name = 'compile'
 command
@@ -25,6 +22,7 @@ command
                          <2> unreachable code removal\n
                          <3> dead-code removal (default)", parseInt, 3)
   .option('-e, --extension <ext>', 'set an extension for the executable')
+  .option('    --color', 'always output colors')
 
 command.on '--help', ->
   console.log '  Examples:'
@@ -39,6 +37,9 @@ command.on '--help', ->
 command.parse process.argv
 
 command.extension ?= ""
+
+# Remove colors when not outputting to CLI
+require('./colorConsole')(command.color)
 
 # Compile files
 metacoffee = require './loadMetaCoffee'
@@ -58,6 +59,7 @@ metacoffee (parser,
       sourceCode = fs.readFileSync file, 'utf8'
     catch e
       console.error "File '#{clc.redBright file}' couldn't be loaded!"
+      continue
 
     # Parse file
     if sourceCode?

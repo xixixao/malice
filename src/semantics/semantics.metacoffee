@@ -161,7 +161,7 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
           new Executes 'Output', pos, false, value
 
     Call :pos :isStatement trans:fun trans*:args
-      ->  validFunction = not checkForTypeError "function call", types.function, fun
+      ->  validFunction = not (fun.type().isError? or checkForTypeError "function call", types.function, fun)
           if validFunction
             if isStatement and not fun.returnType().equals types.void
               error "'#{fun.name()}' is not a procedure, as declared", fun, fun.declaredAt()
@@ -172,7 +172,7 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
             else
               for arg, i in args
                 checkForTypeError "argument #{i+1}", fun.args()[i].type(), arg, fun.args()[i].type()
-          @currentScope.expandFree fun.scope().frees
+            @currentScope.expandFree fun.scope().frees
           if isStatement
             append new Executes('Call', pos, false, fun), args
           else
@@ -236,11 +236,12 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
             new Reference 'Dereference', pos, types.error, name
 
     Element :pos trans:array trans:index
-      ->  if array.isArray?
-            type = array.type().itemType()
-          else
-            checkForTypeError "array access", new ArrayType(0, "<?>"), array
+      ->  unless array.type().isArray?
+            unless array.type().isError?
+              typeError "array access", new ArrayType(0, "<?>"), array 
             type = types.error
+          else
+            type = array.type().itemType()
           checkForTypeError "array index", types.number, index
           new Value 'Element', pos, type, array, index
 
