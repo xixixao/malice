@@ -101,8 +101,6 @@ metacoffee (parser,
             console.log assemblyCode
             continue if lastStage is 'assembly'
           fileName = file.replace new RegExp("#{path.extname file}$"), ''
-          fileName = "out"
-
           do (fileName) ->
             fs.writeFileSync "#{fileName}.s", assemblyCode
             exec "as #{fileName}.s -o #{fileName}.o", (error, stdout, stderr) ->
