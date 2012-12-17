@@ -42,7 +42,9 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
   #
   # Given a list positions, return the range that spans them all
   #
-  allSpan = (values) ->
+  allSpan = (values, enclosing) ->
+    if values.length is 0
+      return enclosing
     [start, _] = values[0].position()
     [_, end] = values[values.length - 1].position()
     [start, end]
@@ -165,7 +167,7 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
               error "'#{fun.name()}' is not a procedure, as declared", fun, fun.declaredAt()
             if args.length isnt fun.args().length
               error "Call to '#{fun.name()}' has #{args.length} argument#{if args.length > 1 then 's' else ''}, " +
-                    "expected #{fun.args().length} as declared", allSpan(args), allSpan(fun.args())
+                    "expected #{fun.args().length} as declared", allSpan(args, pos), allSpan(fun.args(), fun)
             else
               for arg, i in args
                 checkForTypeError "argument #{i+1}", fun.args()[i].type(), arg, fun.args()[i].type()
