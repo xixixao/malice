@@ -31,23 +31,22 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
             concat @functions, [concat [
               ['Label', 'main']
               ['Begin']
-            ], declarations, freePushes, [
+            ], @wrapCalleesAround(concat(declarations, freePushes, [
               ['Call', 'hatta', 0]
-            ], freePops, [
+            ], freePops)), [
               ['End', 'main']
             ]]
 
     Function :node :pos :type :name :returnType {@argCount = 0} [trans*:args] :scope {
           i = args.length
           for freeName, freeNode of scope.frees
-            scope.freeNames[freeName] = i++
+            scope.freeNames[freeName] = [i++]
           return @declare(node, name)
     }:mangledName trans:body
-      ->  callees = @callees()
-          decl = concat [
+      ->  decl = concat [
             ['Label', mangledName]
             ['Begin']
-          ], @pushCallees(callees), args, body, @popCallees(callees), [
+          ], @wrapCalleesAround(concat(args, body)), [
             ['End', mangledName]
           ]
           decl.function = true
@@ -62,19 +61,19 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
 
     Declarations :node :pos trans*:ds
       ->  simples = []
-          for d in ds when d?
+          for d in ds
             if d.function?
               @functions.push d
             else
-              simples = concat simples, d
+              simples.push d...
           simples
 
     Variable :node :pos :type :name
       ->  @declare(node, name)
-          undefined
+          [['Variable']]
 
     Array :node :pos :type :name trans:size
-      ->  [body, result] = size
+      ->  [body, result] = @source size
           decl = concat body, [['Array', @declare(node, name), type, result]]
           decl.simple = yes
           decl
@@ -87,30 +86,34 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
 
     Assignment :node :pos :returns ['Element' :elempos
                           :type trans:array trans:index] trans:value
-      ->  [indexbody, indexresult] = index
-          [arraybody, arrayresult] = array
-          [body, result] = value
+      ->  [indexbody, indexresult] = @source index
+          [arraybody, arrayresult] = @source array
+          [body, result] = @source value
           concat body, arraybody, indexbody, [
             ['ArrayAssignment', arrayresult, indexresult, result, type]
           ]
 
     Assignment :node :pos :returns trans:assignable trans:value
-      ->  [body, result] = value
-          [_, into] = assignable
+      ->  [body, result] = @source value
+          [after, into] = @destination assignable
           concat body, [
             ["Assignment", into, result]
-          ]
+          ], after
 
     Decrement :node :pos :returns trans:variable
-      ->  [_, into] = variable
-          [['Decrement', into]]
+      ->  [after, into] = @destination variable
+          concat [
+            ['Decrement', into]
+          ], after
 
     Increment :node :pos :returns trans:variable
-      ->  [_, into] = variable
-          [['Increment', into]]
+      ->  [after, into] = @destination variable
+          concat [
+            ['Increment', into]
+          ], after
 
     Output :node :pos :returns trans:value
-      ->  [body, result] = value
+      ->  [body, result] = @source value
           concat body, [
             ['Output', result, node[3].type()]
           ]
@@ -135,14 +138,16 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
 
 
     Return :node :pos :returns trans:value
-      ->  [body, result] = value
+      ->  [body, result] = @source value
           concat body, [
              ['Return', result]
           ]
 
     Input :node :pos :returns trans:variable
-      ->  [_, into] = variable
-          [['Read', into, node[3].type()]]
+      ->  [after, into] = @destination variable
+          concat [
+            ['Read', into, node[3].type()]
+          ], after
 
     If :node :pos :returns trans:cond trans:ifBody trans?:elseBody
       ->  [condbody, condresult] = cond
@@ -190,14 +195,13 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
 
     Dereference :node :pos :type :name anything*
       ->  [name, isPointer] = @currentScope.getNameOf(name)
-          if isPointer
-            [[['Assignment', temp = @newTemp(), [name]]], temp]
-          else
-            [[], name]
+          pair = [[], name]
+          pair.isPointer = true
+          pair
 
     Element :node :pos :type trans:array trans:index
-      ->  [indexbody, indexresult] = index
-          [arraybody, arrayresult] = array
+      ->  [indexbody, indexresult] = @source index
+          [arraybody, arrayresult] = @source array
           [concat(indexbody, arraybody,
             [['ArrayAccess', temp = @newTemp(), arrayresult, indexresult, type]]
           ), temp]
@@ -231,8 +235,8 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
           @functions = []
 
   MAliceTranslator::translateExpression = (op, e1, e2) ->
-    [e1body, e1result] = e1
-    [e2body, e2result] = e2 if e2?
+    [e1body, e1result] = @source e1
+    [e2body, e2result] = @source e2 if e2?
     result = @newTemp()
     [concat(e1body, e2body ? [],
       if e2?
@@ -243,6 +247,16 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
 
   MAliceTranslator::translateValue = (v, type) ->
     [[['ValAssignment', temp = @newTemp(), v, type]], temp]
+
+  MAliceTranslator::source = (value) ->
+    if value.isPointer?
+      [_, name] = value
+      [[['Assignment', temp = @newTemp(), name]], temp]
+    else
+      value
+
+  MAliceTranslator::destination = (value) ->
+    value
 
   MAliceTranslator::newLabel = ->
     "L" + @labelCounter++
@@ -255,13 +269,17 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
     node?.mangledName = newName
     newName
 
-  MAliceTranslator::pushCallees = (callees) ->
+  MAliceTranslator::wrapCalleesAround = (body) ->
+    callees = @callees()
+    concat pushCallees(callees), body, popCallees(callees)
+
+  pushCallees = (callees) ->
     for [temp, reg] in callees
       node = ['Assignment', temp, reg]
       node.isPush = true
       node
 
-  MAliceTranslator::popCallees = (callees) ->
+  popCallees = (callees) ->
     (for [temp, reg] in callees
       node = ['Assignment', reg, temp]
       node.isPop = true

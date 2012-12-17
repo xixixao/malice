@@ -114,6 +114,7 @@ module.exports = (OMeta, OMLib) -> optimize: (instructions, namer, level) ->
       Array :node :name :type :size declaration(node, name)
         ->  addUsing node, size
             addLiveOut node, cCallerSaveRegisters...
+      Variable :node
       declaration :node :name
         ->  addDefines node, name
       ArrayAccess :node :into :array :index :type assignment(node, into, array)

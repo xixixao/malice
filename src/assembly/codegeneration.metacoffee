@@ -70,6 +70,7 @@ module.exports = (OMeta, OMLib) -> generateCode: (threeCode) ->
            alloc = 'alloc_i'
          concat callCFunction(alloc, @accessVariable size),
                 ["\tmov #{@accessVariable name}, rax"]
+    Variable
     IfFalse :condition :jumpto
       -> ["\tcmp #{@accessVariable condition}, 0",
           "\tje #{jumpto}"]
