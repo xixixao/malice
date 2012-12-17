@@ -236,11 +236,11 @@ module.exports = (OMeta, OMLib) -> analyze: (source, ast) ->
             new Reference 'Dereference', pos, types.error, name
 
     Element :pos trans:array trans:index
-      ->  if not array.type().isArray?
-            typeError "array access", new ArrayType(0, "<?>"), array
-            type = types.error
-          else
+      ->  if array.isArray?
             type = array.type().itemType()
+          else
+            checkForTypeError "array access", new ArrayType(0, "<?>"), array
+            type = types.error
           checkForTypeError "array index", types.number, index
           new Value 'Element', pos, type, array, index
 
