@@ -38,7 +38,7 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
             ]]
 
     Function :node :pos :type :name :returnType [trans*:args] :scope {
-          i = 0
+          i = args.length
           for freeName, freeNode of scope.frees
             scope.freeNames[freeName] = i++
           return @declare(node, name)
