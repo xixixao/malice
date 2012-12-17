@@ -180,10 +180,8 @@ module.exports = (OMeta, OMLib) -> generateCode: (threeCode) ->
       @accessData '%s'
     else if type.equals types.letter
       @accessData '%c'
-    else if type.equals types.number
+    else if type.equalsAny types.number, types.boolean
       @accessData '%d'
-    else if type.equals types.boolean
-      @accessData '%b'
 
   MAliceCodeGeneration::writeDataSection = ->
     return '' if @data.length is 0
