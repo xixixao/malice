@@ -190,8 +190,10 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
 
     Dereference :node :pos :type :name anything*
       ->  [name, isPointer] = @currentScope.getNameOf(name)
-          name = [name] if isPointer
-          [[], name]
+          if isPointer
+            [[['Assignment', temp = @newTemp(), [name]]], temp]
+          else
+            [[], name]
 
     Element :node :pos :type trans:array trans:index
       ->  [indexbody, indexresult] = index
