@@ -81,7 +81,7 @@ class ArrayType extends Type
     node.toString = -> "spider #{@itemType()}"
     return node
   equals: (t) ->
-    t.isArray and @itemType().equals t.itemType()
+    t.isError or t.isArray and @itemType().equals t.itemType()
 
 class ErrorType extends Type
   constructor: ->
