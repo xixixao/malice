@@ -1,10 +1,27 @@
 The looking-glass hatta ()
 opened
-arrLen was a number of 6.
-arr had arrLen number.
-i was a number and i became 0.
+  arrLen was a number of 10.
+  arr had arrLen number.
+  total was a number.
+
+  The looking-glass initialise ()
+  opened
+    i was a number and i became 0.
     eventually (i == arrLen) because
-       arr's i piece became i * 2 + (~(10/3) - (((i + 500)))).
-          i ate.
- enough times
- closed
+     arr's i piece became i * 2 + (~(10/3) - (((i + 500)))).
+     i ate.
+    enough times
+  closed
+
+  initialise().
+  "Choose an element to print in the range 0.." spoke, arrLen - 1 spoke.
+  opened
+    elem was a number.
+    what was elem?
+    either (elem < 0 || elem > arrLen - 1) so
+      "Chosen element out of range" said Alice.
+    or
+     printElement (arr, elem).
+    because Alice was unsure which
+  closed
+closed
