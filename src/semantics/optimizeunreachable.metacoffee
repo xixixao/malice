@@ -49,4 +49,4 @@ module.exports = (OMeta, OMLib) -> optimize: (source, ast) ->
     node
 
   MaliceUnreachableCodeRemoval.match ast, "trans", undefined, (m, i) ->
-    throw "ERROR while traversing AST in static optimizer"
+    throw "ERROR while traversing AST in static optimizer - unreachables"

@@ -144,13 +144,23 @@ module.exports = (OMeta, OMLib) -> translate: (source, ast) ->
       ->  [_, into] = variable
           [['Read', into, node[3].type()]]
 
-    If :node :pos :returns trans:cond trans:ifBody trans:elseBody
+    If :node :pos :returns trans:cond trans:ifBody trans?:elseBody
       ->  [condbody, condresult] = cond
           concat condbody, [
             ['IfFalse', condresult, elseLabel = @newLabel()]
-          ], ifBody, [
+          ], ifBody, (if elseBody? then concat [
             ['Jump', endLabel = @newLabel()]
             ['Label', elseLabel]
+          ], elseBody, [
+            ['Label', endLabel]
+          ] else [
+            ['Label', elseLabel]
+          ])
+
+    IfNot :node :pos :returns trans:cond trans:ifBody
+      ->  [condbody, condresult] = cond
+          concat condbody, [
+            ['IfTrue', condresult, endLabel = @newLabel()]
           ], elseBody, [
             ['Label', endLabel]
           ]
