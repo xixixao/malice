@@ -1,3 +1,7 @@
+This assignment is no longer used at Imperial, so I decided to publish our solution. It's a compiler for made up language called MAlice (see langspec/malice_milestone2_spec.md), which compiles given plaintext source code into x86 assembly. I wish we were allowed to compile down to LLVM, but this would prevent us to handroll some of the assembly optimizations (think register allocation).
+
+This is an example of how [MetaCoffee](https://github.com/xixixao/meta-coffee/) and/or [CoffeeScript](http://coffeescript.org) can be used to write a full-blown down-to-assembly compiler.
+
 # MAlice Milestone 2
 
 ## Overview
